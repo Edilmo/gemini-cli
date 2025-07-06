@@ -15,6 +15,7 @@ import {
   createUserContent,
   Part,
   GenerateContentResponseUsageMetadata,
+  ContentUnion,
 } from '@google/genai';
 import { retryWithBackoff } from '../utils/retry.js';
 import { isFunctionResponse } from '../utils/messageInspectors.js';
@@ -35,6 +36,7 @@ import {
   ApiResponseEvent,
 } from '../telemetry/types.js';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
+import { getGoogleAccountId } from '../utils/user_id.js';
 
 /**
  * Returns true if the response is valid, false otherwise.
@@ -246,8 +248,32 @@ export class GeminiChat {
     params: SendMessageParameters,
   ): Promise<GenerateContentResponse> {
     await this.sendPromise;
-    const userContent = createUserContent(params.message);
-    const requestContents = this.getHistory(true).concat(userContent);
+    let userContent = createUserContent(params.message);
+    let requestContents = this.getHistory(true).concat(userContent);
+    const generationConfig = { ...this.generationConfig, ...params.config };
+
+    const enhancers = this.config.getPromptEnhancers();
+    if (enhancers.length > 0) {
+      // Pass the initial system instruction to the first enhancer.
+      let systemInstruction: ContentUnion | undefined =
+        generationConfig.systemInstruction;
+      // Use Google Account ID if available, otherwise fall back to session ID
+      const googleAccountId = await getGoogleAccountId();
+      const userId = googleAccountId || this.config.getSessionId();
+      for (const enhancer of enhancers) {
+        const result = await enhancer.enhance(
+          userId,
+          systemInstruction,
+          requestContents,
+        );
+        systemInstruction = result.systemInstruction;
+        requestContents = result.contents;
+      }
+      // Re-assign the (potentially) modified system instruction.
+      generationConfig.systemInstruction = systemInstruction;
+      // a bit of a hack, but the enhancer might have modified the user content
+      userContent = requestContents[requestContents.length - 1];
+    }
 
     this._logApiRequest(requestContents, this.config.getModel());
 
@@ -259,7 +285,7 @@ export class GeminiChat {
         this.contentGenerator.generateContent({
           model: this.config.getModel() || DEFAULT_GEMINI_FLASH_MODEL,
           contents: requestContents,
-          config: { ...this.generationConfig, ...params.config },
+          config: generationConfig,
         });
 
       response = await retryWithBackoff(apiCall, {
@@ -340,8 +366,33 @@ export class GeminiChat {
     params: SendMessageParameters,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
     await this.sendPromise;
-    const userContent = createUserContent(params.message);
-    const requestContents = this.getHistory(true).concat(userContent);
+    let userContent = createUserContent(params.message);
+    let requestContents = this.getHistory(true).concat(userContent);
+    const generationConfig = { ...this.generationConfig, ...params.config };
+
+    const enhancers = this.config.getPromptEnhancers();
+    if (enhancers.length > 0) {
+      // Pass the initial system instruction to the first enhancer.
+      let systemInstruction: ContentUnion | undefined =
+        generationConfig.systemInstruction;
+      // Use Google Account ID if available, otherwise fall back to session ID
+      const googleAccountId = await getGoogleAccountId();
+      const userId = googleAccountId || this.config.getSessionId();
+      for (const enhancer of enhancers) {
+        const result = await enhancer.enhance(
+          userId,
+          systemInstruction,
+          requestContents,
+        );
+        systemInstruction = result.systemInstruction;
+        requestContents = result.contents;
+      }
+      // Re-assign the (potentially) modified system instruction.
+      generationConfig.systemInstruction = systemInstruction;
+      // a bit of a hack, but the enhancer might have modified the user content
+      userContent = requestContents[requestContents.length - 1];
+    }
+
     this._logApiRequest(requestContents, this.config.getModel());
 
     const startTime = Date.now();
@@ -351,7 +402,7 @@ export class GeminiChat {
         this.contentGenerator.generateContentStream({
           model: this.config.getModel(),
           contents: requestContents,
-          config: { ...this.generationConfig, ...params.config },
+          config: generationConfig,
         });
 
       // Note: Retrying streams can be complex. If generateContentStream itself doesn't handle retries

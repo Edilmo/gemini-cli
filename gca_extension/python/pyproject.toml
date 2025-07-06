@@ -1,0 +1,41 @@
+[project]
+name = "gca-memory-simulator"
+version = "0.1.0"
+description = "A simulator for the GCA memory server"
+readme = "README.md"
+authors = [{ name = "Edilmo Palencia", email = "edilmo@gmail.com" }]
+requires-python = ">=3.11"
+dependencies = [
+    "chromadb>=1.0.15",
+    "fastapi>=0.115.14",
+    "google-genai>=1.24.0",
+    "gradio>=5.35.0",
+    "numpy>=2.3.1",
+    "pillow>=11.3.0",
+    "pydantic>=2.11.7",
+    "uvicorn>=0.35.0",
+]
+
+[project.scripts]
+gca-memory-simulator = "gca_memory_simulator.gradio_app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.16.1",
+    "pyright>=1.1.402",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.0.0",
+]
+
+[tool.pyright]
+include = ["src"]
+exclude = ["**/node_modules", "**/__pycache__", "typestubs"]
+stubPath = "typestubs"
+reportMissingImports = "error"
+reportMissingTypeStubs = true
+pythonVersion = "3.11"
+pythonPlatform = "Linux"

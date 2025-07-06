@@ -43,6 +43,7 @@ import {
   DEFAULT_GEMINI_FLASH_MODEL,
 } from './models.js';
 import { ClearcutLogger } from '../telemetry/clearcut-logger/clearcut-logger.js';
+import { Content, ContentUnion } from '@google/genai';
 
 export enum ApprovalMode {
   DEFAULT = 'default',
@@ -52,6 +53,18 @@ export enum ApprovalMode {
 
 export interface AccessibilitySettings {
   disableLoadingPhrases?: boolean;
+}
+
+export interface PromptEnhancer {
+  name: string;
+  enhance(
+    userId: string,
+    systemInstruction: ContentUnion | undefined,
+    contents: Content[],
+  ): Promise<{
+    systemInstruction: ContentUnion | undefined;
+    contents: Content[];
+  }>;
 }
 
 export interface BugCommandSettings {
@@ -130,6 +143,7 @@ export interface ConfigParameters {
   bugCommand?: BugCommandSettings;
   model: string;
   extensionContextFilePaths?: string[];
+  promptEnhancers?: PromptEnhancer[];
 }
 
 export class Config {
@@ -168,6 +182,7 @@ export class Config {
   private readonly bugCommand: BugCommandSettings | undefined;
   private readonly model: string;
   private readonly extensionContextFilePaths: string[];
+  private readonly promptEnhancers: PromptEnhancer[];
   private modelSwitchedDuringSession: boolean = false;
   flashFallbackHandler?: FlashFallbackHandler;
 
@@ -211,6 +226,7 @@ export class Config {
     this.bugCommand = params.bugCommand;
     this.model = params.model;
     this.extensionContextFilePaths = params.extensionContextFilePaths ?? [];
+    this.promptEnhancers = params.promptEnhancers ?? [];
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -443,6 +459,10 @@ export class Config {
 
   getExtensionContextFilePaths(): string[] {
     return this.extensionContextFilePaths;
+  }
+
+  getPromptEnhancers(): PromptEnhancer[] {
+    return this.promptEnhancers;
   }
 
   async getGitService(): Promise<GitService> {

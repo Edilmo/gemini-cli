@@ -22,7 +22,9 @@
       "request": "launch",
       "name": "Launch E2E",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "test:e2e", "read_many_files"],
+      "runtimeArgs": ["run", "test:e2e", "memory-extension"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
       "skipFiles": ["<node_internals>/**"],
       "cwd": "${workspaceFolder}"
     },
@@ -64,7 +66,23 @@
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": ["<node_internals>/**"]
-    }
+    },
+    {
+      "name": "Python: FastAPI",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "gca_memory_simulator.gradio_app:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "7860"
+      ],
+      "jinja": true,
+      "cwd": "${workspaceFolder}/gca_extension/python",
+      "justMyCode": false
+  }
   ],
   "inputs": [
     {
