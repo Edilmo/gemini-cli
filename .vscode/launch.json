@@ -85,7 +85,7 @@
       "jinja": true,
       "cwd": "${workspaceFolder}/gca_extension/python",
       "justMyCode": false
-  }
+    }
   ],
   "inputs": [
     {

@@ -24,9 +24,14 @@ describe('memory-extension', () => {
     // Start the Python server
     pythonServer = spawn(
       'uv',
-      ['run', 'uvicorn',
-       'gca_memory_simulator.gradio_app:app',
-       '--reload', '--port', '7860'],
+      [
+        'run',
+        'uvicorn',
+        'gca_memory_simulator.gradio_app:app',
+        '--reload',
+        '--port',
+        '7860',
+      ],
       {
         cwd: join(projectRoot, 'gca_extension', 'python'),
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -34,7 +39,9 @@ describe('memory-extension', () => {
           ...process.env,
           GEMINI_API_KEY:
             process.env.GEMINI_API_KEY ??
-            (() => { throw new Error('GEMINI_API_KEY not set'); })(),
+            (() => {
+              throw new Error('GEMINI_API_KEY not set');
+            })(),
         },
       },
     );
@@ -67,12 +74,15 @@ describe('memory-extension', () => {
     mkdirSync(extensionDir, { recursive: true });
 
     // Copy extension files
-    cpSync(join(projectRoot, 'gca_extension', 'gemini-extension.json'), join(extensionDir, 'gemini-extension.json'));
-    
+    cpSync(
+      join(projectRoot, 'gca_extension', 'gemini-extension.json'),
+      join(extensionDir, 'gemini-extension.json'),
+    );
+
     // Compile the actual extension TypeScript file to JavaScript using esbuild
     const extensionTsPath = join(projectRoot, 'gca_extension', 'index.ts');
     const extensionJsPath = join(extensionDir, 'index.js');
-    
+
     await esbuild.build({
       entryPoints: [extensionTsPath],
       outfile: extensionJsPath,
@@ -86,7 +96,9 @@ describe('memory-extension', () => {
     rig.createFile('test.txt', 'This is a test file.');
 
     // First, save some information to memory
-    const saveResult = rig.run('Remember that the best beaches are in Venezuela.');
+    const saveResult = rig.run(
+      'Remember that the best beaches are in Venezuela.',
+    );
     console.log('Save result:', saveResult);
 
     // Then try to retrieve it
@@ -96,7 +108,7 @@ describe('memory-extension', () => {
     // The response should contain information about TypeScript preference
     assert.ok(
       retrieveResult.toLowerCase().includes('venezuela'),
-      'Response should contain memory about Venezuela'
+      'Response should contain memory about Venezuela',
     );
   });
 
@@ -109,10 +121,18 @@ describe('memory-extension', () => {
     mkdirSync(extensionDir, { recursive: true });
 
     // Copy extension files
-    cpSync(join(projectRoot, 'gca_extension', 'gemini-extension.json'), join(extensionDir, 'gemini-extension.json'));
-    
+    cpSync(
+      join(projectRoot, 'gca_extension', 'gemini-extension.json'),
+      join(extensionDir, 'gemini-extension.json'),
+    );
+
     // Create a minimal extension that simulates server being down
-    const extensionContent = `
+    const extensionContent = `/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 const memoryEnhancer = {
   name: 'memory-enhancer',
   async enhance(userId, systemInstruction, contents) {
@@ -133,4 +153,4 @@ export default memoryEnhancer;
     const result = rig.run('What is 2 + 2?');
     assert.ok(result.includes('4'), 'Should work without memory server');
   });
-}); 
+});

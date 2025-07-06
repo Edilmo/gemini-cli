@@ -114,9 +114,11 @@ async function loadExtension(extensionDir: string): Promise<Extension | null> {
         // 1. resolve any symlinks (/var -> /private/var on macOS)
         const realPath = fs.realpathSync(modifierPath);
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let mod: any;
         if (process.env.VITEST) {
           // ⬅️  Bypass Vite: load with CJS require
+          // eslint-disable-next-line no-restricted-syntax
           mod = require(realPath);
         } else {
           // normal runtime – native ESM import
