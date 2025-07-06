@@ -4,9 +4,9 @@ name: Gemini CLI CI
 
 on:
   push:
-    branches: [main, release, gca-main]
+    branches: [main, release, main-gca]
   pull_request:
-    branches: [main, release, gca-main]
+    branches: [main, release, main-gca]
   merge_group:
 
 jobs:
