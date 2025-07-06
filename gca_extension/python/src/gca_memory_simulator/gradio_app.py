@@ -99,6 +99,14 @@ class MemoryEntry(BaseModel):
         return f"{self.user_id}_{self.timestamp}_{self.section_id}"
 
 
+class MemoryEntryResult(MemoryEntry):
+    """
+    A class that represents a memory entry result for the Gemini memory search query.
+    """
+
+    distance: float = Field(description="The distance of the memory entry from the query.")
+
+
 class GeminiMemory:
     """
     A class that represents a Gemini memory that works as context window manager for the Gemini model call.
@@ -127,21 +135,36 @@ class GeminiMemory:
         """
         if self.session_log_enabled:
             self.session_log.append(input)
-        return self._put(input)
+        if not input.contents:
+            return ContextWindow(system_instruction=input.system_instruction, contents=input.contents)
 
-    def _put(self, input: ContextWindowInput) -> ContextWindow:
+        last_user_message = self._get_last_user_message(input)
+
+        system_instruction = input.system_instruction
+
+        if last_user_message:
+            results = self.search(last_user_message)
+            if results:
+                retrieved_memories = "\n".join([result.content for result in results])
+                system_instruction = self._get_new_system_instruction(
+                    input.user_id, system_instruction, retrieved_memories
+                )
+
+        return ContextWindow(system_instruction=system_instruction, contents=input.contents)
+
+    def search(self, last_user_message: str) -> List[MemoryEntryResult]:
         """
-        Put a new context window into the Gemini memory.
+        Search the Gemini memory for the most relevant memories given a user message.
 
         Args:
-            input: The input context window to add to the Gemini memory.
+            last_user_message: The last user message to search the Gemini memory for.
 
         Returns:
-            The new system instruction and contents of the context window enhanced with the relevant memories.
+            The most relevant memories from the Gemini memory.
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def list(self) -> List[str]:
+    def list(self) -> List[MemoryEntry]:
         """
         Returns all memories from the Gemini memory.
 
@@ -323,34 +346,42 @@ class ChromaMemory(GeminiMemory):
             name=collection_name, embedding_function=GeminiEmbeddingFunction(self.gemini_client)
         )
 
-    def _put(self, input: ContextWindowInput) -> ContextWindow:
+    def search(self, last_user_message: str) -> List[MemoryEntryResult]:
         """
-        Put a new context window into the Gemini memory.
+        Search the Gemini memory for the most relevant memories given a user message.
 
         Args:
-            input: The input context window to add to the Gemini memory.
+            last_user_message: The last user message to search the Gemini memory for.
 
         Returns:
-            The new system instruction and contents of the context window enhanced with the relevant memories.
+            The most relevant memories from the Gemini memory.
         """
-        if not input.contents:
-            return ContextWindow(system_instruction=input.system_instruction, contents=input.contents)
-
-        last_user_message = self._get_last_user_message(input)
-
-        system_instruction = input.system_instruction
-
-        if last_user_message:
-            results = self.memory_collection.query(query_texts=[last_user_message], n_results=10)
-            if results["documents"]:
-                retrieved_memories = "\n".join(results["documents"][0])
-                system_instruction = self._get_new_system_instruction(
-                    input.user_id, system_instruction, retrieved_memories
+        results = self.memory_collection.query(query_texts=[last_user_message], n_results=10)
+        if results["documents"]:
+            assert "metadatas" in results
+            assert "distances" in results
+            assert "documents" in results
+            assert results["metadatas"] is not None
+            assert results["distances"] is not None
+            assert results["documents"] is not None
+            assert results["metadatas"][0] is not None
+            return [
+                MemoryEntryResult(
+                    content=document,
+                    distance=distance,
+                    user_id=metadata["user_id"],
+                    timestamp=metadata["timestamp"],
+                    section_id=metadata["section_id"],
                 )
+                for document, distance, metadata in zip(
+                    results["documents"][0],
+                    results["distances"][0],
+                    results["metadatas"][0],
+                )
+            ]
+        return []
 
-        return ContextWindow(system_instruction=system_instruction, contents=input.contents)
-
-    def list(self) -> List[str]:
+    def list(self) -> List[MemoryEntry]:
         """
         Returns all memories from the ChromaDB collection.
 
@@ -358,7 +389,17 @@ class ChromaMemory(GeminiMemory):
             A list of all memories from the ChromaDB collection.
         """
         memories = self.memory_collection.get()
-        return memories["documents"] if memories["documents"] else []
+        assert memories["documents"] is not None
+        assert memories["metadatas"] is not None
+        return [
+            MemoryEntry(
+                content=document,
+                user_id=metadata["user_id"],
+                timestamp=metadata["timestamp"],
+                section_id=metadata["section_id"],
+            )
+            for document, metadata in zip(memories["documents"], memories["metadatas"])
+        ]
 
     def post(self, memory: MemoryEntry) -> None:
         """
@@ -400,25 +441,21 @@ with gr.Blocks(fill_height=True, fill_width=True) as demo:
         gr.Interface(
             fn=put_memory,
             inputs=[
-                gr.Textbox(label="User ID", value="user_1", elem_id="user_id"),
-                gr.Textbox(label="System Instruction", elem_id="system_instruction"),
-                gr.Textbox(label="Contents", elem_id="contents"),
+                gr.Textbox(label="User ID", value="user_1", elem_id="user_id", scale=0),
+                gr.Textbox(label="System Instruction", elem_id="system_instruction", scale=0),
+                gr.Textbox(label="Contents", elem_id="contents", scale=0),
             ],
-            outputs=gr.Json(label="Memory Augmented Context Window", height=900, max_height=2000),
+            outputs=gr.Json(label="Memory Augmented Context Window", scale=1),
             title="Memory Augmentation",
             description="Receives a context window, enhances it with memories, and stores the interaction.",
             api_name="put",
             flagging_mode="never",
         )
-    with gr.Tab("List"):
-        view_button = gr.Button("View All Memories")
-        memory_display = gr.Textbox(label="Stored Memories", lines=45, interactive=False)
-        view_button.click(fn=memory.list, inputs=None, outputs=memory_display)
     with gr.Tab("Post"):
-        content_input = gr.Textbox(label="Content", lines=5)
-        user_id_input = gr.Textbox(label="User ID", value="user_1")
-        section_id_input = gr.Textbox(label="Section ID", value="user_profile")
-        post_button = gr.Button("Post Memory")
+        content_input = gr.Textbox(label="Content", lines=5, scale=1)
+        user_id_input = gr.Textbox(label="User ID", value="user_1", scale=0)
+        section_id_input = gr.Textbox(label="Section ID", value="user_profile", scale=0)
+        post_button = gr.Button("Post Memory", scale=0)
 
         def post_memory(content: str, user_id: str, section_id: str) -> None:
             memory.post(
@@ -436,6 +473,32 @@ with gr.Blocks(fill_height=True, fill_width=True) as demo:
             inputs=None,
             outputs=[content_input],
         )
+    with gr.Tab("List"):
+
+        def render_all_memories() -> Dict[str, Dict[str, Any]]:
+            all_memories = memory.list()
+            dict_list: Dict[str, Dict[str, Any]] = {}
+            for entry in all_memories:
+                dict_list[entry.id] = entry.model_dump()
+            return dict_list
+
+        view_button = gr.Button("View All Memories", scale=0)
+        memory_display = gr.JSON(label="All Memories", show_indices=True, scale=1, max_height=None)
+        view_button.click(fn=render_all_memories, inputs=None, outputs=memory_display)
+    with gr.Tab("Search"):
+
+        def search_memory(query: str) -> Dict[str, Dict[str, Any]]:
+            found_memories = memory.search(query)
+            dict_list: Dict[str, Dict[str, Any]] = {}
+            for entry in found_memories:
+                dict_list[entry.id] = entry.model_dump()
+            return dict_list
+
+        with gr.Row():
+            query_input = gr.Textbox(label="Query", scale=1)
+            view_button = gr.Button("Search", scale=0)
+        memory_display = gr.JSON(label="Search Results", show_indices=True, scale=1, max_height=None)
+        view_button.click(fn=search_memory, inputs=query_input, outputs=memory_display)
     with gr.Tab("Session Log"):
 
         def render_session_log() -> Dict[str, Dict[str, Any]]:
@@ -447,8 +510,8 @@ with gr.Blocks(fill_height=True, fill_width=True) as demo:
         DEFAULT_ENABLED = True
         memory.session_log_enabled = DEFAULT_ENABLED
         checkbox = gr.Checkbox(label="Enable Session Log", value=DEFAULT_ENABLED)
-        view_button = gr.Button("View Session Log")
-        session_log_display = gr.JSON(label="Session Log", height=900, max_height=2000, show_indices=True)
+        view_button = gr.Button("View Session Log", scale=0)
+        session_log_display = gr.JSON(label="Session Log", show_indices=True, scale=1)
         view_button.click(fn=render_session_log, inputs=None, outputs=session_log_display)
         checkbox.change(fn=memory.set_session_log_enabled, inputs=checkbox, outputs=None)
 
