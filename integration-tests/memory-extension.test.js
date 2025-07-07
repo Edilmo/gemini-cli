@@ -78,19 +78,10 @@ describe('memory-extension', () => {
       join(projectRoot, 'gca_extension', 'gemini-extension.json'),
       join(extensionDir, 'gemini-extension.json'),
     );
-
-    // Compile the actual extension TypeScript file to JavaScript using esbuild
-    const extensionTsPath = join(projectRoot, 'gca_extension', 'index.ts');
-    const extensionJsPath = join(extensionDir, 'index.js');
-
-    await esbuild.build({
-      entryPoints: [extensionTsPath],
-      outfile: extensionJsPath,
-      platform: 'node',
-      format: 'esm',
-      target: 'node20',
-      bundle: false, // Don't bundle dependencies, just compile TS to JS
-    });
+    cpSync(
+      join(projectRoot, 'gca_extension', 'index.js'),
+      join(extensionDir, 'index.js'),
+    );
 
     // Create a simple test file to work with
     rig.createFile('test.txt', 'This is a test file.');
