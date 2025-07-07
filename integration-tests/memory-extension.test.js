@@ -97,18 +97,19 @@ describe('memory-extension', () => {
 
     // First, save some information to memory
     const saveResult = rig.run(
-      'Remember that the best beaches are in Venezuela.',
+      'I had an outage in my Data Lake that runs in my main GKE cluster k8s-americas.',
     );
     console.log('Save result:', saveResult);
 
     // Then try to retrieve it
-    const retrieveResult = rig.run('Where are the best beaches in the world?');
+    const retrieveResult = rig.run('Do you know where the last outage was?');
     console.log('Retrieve result:', retrieveResult);
 
     // The response should contain information about TypeScript preference
     assert.ok(
-      retrieveResult.toLowerCase().includes('venezuela'),
-      'Response should contain memory about Venezuela',
+      retrieveResult.toLowerCase().includes('k8s-americas') ||
+        retrieveResult.toLowerCase().includes('data lake'),
+      'Response should contain memory about the last outage',
     );
   });
 

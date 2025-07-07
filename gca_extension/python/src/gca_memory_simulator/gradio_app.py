@@ -13,12 +13,17 @@ from chromadb import EmbeddingFunction, Embeddings
 from chromadb.api.types import Embeddable
 from fastapi import FastAPI
 from google import genai
-from google.genai.types import Content, Part, File
+from google.genai.types import Content, Part, File, GenerateContentConfig, ThinkingConfig
 import gradio as gr
 import numpy as np
 # from PIL import Image
 from pydantic import BaseModel, Field, ConfigDict
-# from pydantic_core import core_schema
+
+from gca_memory_simulator.resources.memory_conf import (
+    create_dynamic_user_memory_model,
+    MemoryConfig,
+    RenderedMemoryPromptsConfig,
+)
 
 
 # ------------------------------------------------------------------
@@ -90,13 +95,53 @@ class MemoryEntry(BaseModel):
     user_id: str = Field(description="The ID of the user that is interacting with the Gemini model.")
     timestamp: str = Field(description="The creation timestamp of the memory entry.")
     section_id: str = Field(description="The ID of the memory section where the memory entry is stored.")
+    property_id: str = Field(description="The ID of the memory property where the memory entry is stored.")
+    property_value_index: int = Field(description="The index of the property value in the property when it is a list.")
 
     @property
     def id(self) -> str:
         """
         Returns the ID of the memory entry.
         """
-        return f"{self.user_id}_{self.timestamp}_{self.section_id}"
+        base_id = f"{self.user_id}_{self.section_id}_{self.property_id}_{self.property_value_index}"
+        if self.timestamp:
+            return f"{base_id}_{self.timestamp}"
+        else:
+            return base_id
+
+    def get_content_to_embed(self, memory_config: MemoryConfig) -> str:
+        """
+        Returns the content of the memory entry to embed.
+        """
+        section = memory_config.get_section(self.section_id)
+        if section is None:
+            return self.content
+        property = section.get_property(self.property_id)
+        if property is None:
+            return self.content
+        return (
+            f"{property.embedding_prefix}\n{self.content}"
+            if property.embedding_prefix
+            else (
+                f"{property.context_window_prefix}\n{self.content}" if property.context_window_prefix else self.content
+            )
+        )
+
+    def get_content_for_context_window(self, memory_config: MemoryConfig) -> str:
+        """
+        Returns the content of the memory entry to use in the context window.
+        """
+        section = memory_config.get_section(self.section_id)
+        if section is None:
+            return self.content
+        property = section.get_property(self.property_id)
+        if property is None:
+            return self.content
+        return (
+            f"{property.context_window_prefix}\n{self.content}"
+            if property.context_window_prefix
+            else (f"{property.embedding_prefix}\n{self.content}" if property.embedding_prefix else self.content)
+        )
 
 
 class MemoryEntryResult(MemoryEntry):
@@ -122,6 +167,99 @@ class GeminiMemory:
         self.gemini_client = gemini_client
         self.session_log_enabled = session_log_enabled
         self.session_log: List[ContextWindowInput] = []
+        self.memory_config = MemoryConfig.from_default_config()
+        self.UserMemoryModel = create_dynamic_user_memory_model(self.memory_config)
+        _, self.rendered_config = RenderedMemoryPromptsConfig.from_default_config(self.memory_config)
+
+    def _extract_memories(self, user_id: str, user_input: str) -> List[MemoryEntry]:
+        """
+        Extract memories from the user input.
+
+        Args:
+            user_id: The ID of the user that is interacting with the Gemini model.
+            user_input: The input from the user that is interacting with the Gemini model.
+
+        Returns:
+            The extracted memories from the user input.
+        """
+        try:
+            extract_prompt = self.rendered_config.get_rendered_extract_prompt(self.memory_config, user_input)
+            response = self.gemini_client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=extract_prompt,
+                config=GenerateContentConfig(
+                    thinking_config=ThinkingConfig(thinking_budget=self.rendered_config.extract_config.thinking_budget),
+                    temperature=self.rendered_config.extract_config.temperature,
+                    top_p=self.rendered_config.extract_config.top_p,
+                    seed=self.rendered_config.extract_config.seed,
+                    system_instruction=self.rendered_config.rendered_extraction_system_prompt,
+                    response_mime_type="application/json",
+                    response_schema=self.UserMemoryModel,
+                ),
+            )
+            result: List[MemoryEntry] = []
+
+            if response.parsed:
+                # Create a mapping of section id to section type for timestamp logic
+                section_type_mapping = {section.id: section.type for section in self.memory_config.sections}
+
+                # Get the current timestamp
+                current_timestamp = datetime.now().isoformat()
+
+                # Iterate through all sections (field names = section IDs)
+                for section_id in response.parsed.__dict__.keys():
+                    section_data = getattr(response.parsed, section_id)
+
+                    # Skip if section data is None
+                    if section_data is None:
+                        continue
+
+                    # Get the section type to determine if timestamp should be included
+                    section_type = section_type_mapping.get(section_id, "")
+                    timestamp = current_timestamp if section_type == "procedural" else ""
+
+                    # Iterate through all properties in the section
+                    for property_id in section_data.__dict__.keys():
+                        property_value = getattr(section_data, property_id)
+
+                        # Skip if property value is None
+                        if property_value is None:
+                            continue
+
+                        # Check if the property is a list type
+                        if isinstance(property_value, list):
+                            # Create one MemoryEntry per item in the list
+                            for index, item in enumerate(property_value):
+                                # Convert item to string and check if it's meaningful
+                                item_str = str(item) if item is not None else ""
+                                if item_str.strip():  # Skip empty or whitespace-only items
+                                    memory_entry = MemoryEntry(
+                                        content=item_str,
+                                        user_id=user_id,
+                                        timestamp=timestamp,
+                                        section_id=section_id,
+                                        property_id=property_id,
+                                        property_value_index=index,
+                                    )
+                                    result.append(memory_entry)
+                        else:
+                            # Create one MemoryEntry for non-list properties
+                            property_str = str(property_value) if property_value is not None else ""
+                            if property_str.strip():  # Skip empty or whitespace-only values
+                                memory_entry = MemoryEntry(
+                                    content=property_str,
+                                    user_id=user_id,
+                                    timestamp=timestamp,
+                                    section_id=section_id,
+                                    property_id=property_id,
+                                    property_value_index=0,
+                                )
+                                result.append(memory_entry)
+
+            return result
+        except Exception as e:
+            logger.error(f"Error extracting memories for user {user_id}: {e}")
+            return []
 
     def put(self, input: ContextWindowInput) -> ContextWindow:
         """
@@ -143,12 +281,28 @@ class GeminiMemory:
         system_instruction = input.system_instruction
 
         if last_user_message:
+            logger.info(f"Extracting memories for user {input.user_id}")
+            potential_memories = self._extract_memories(input.user_id, last_user_message)
+            logger.info(
+                f"Searching for memories for user {input.user_id} - {len(potential_memories)} potential memories"
+            )
             results = self.search(last_user_message)
             if results:
-                retrieved_memories = "\n".join([result.content for result in results])
+                retrieved_memories = "\n".join(
+                    [result.get_content_for_context_window(self.memory_config) for result in results]
+                )
                 system_instruction = self._get_new_system_instruction(
                     input.user_id, system_instruction, retrieved_memories
                 )
+                logger.info(f"Retrieved {len(results)} memories for user {input.user_id}")
+            if potential_memories:
+                logger.info(f"Posting {len(potential_memories)} potential memories for user {input.user_id}")
+                #########################################################################################
+                # TODO: Add support to update methods defined in the memory config
+                #########################################################################################
+                for memory in potential_memories:
+                    self.post(memory)
+                logger.info(f"Posted {len(potential_memories)} potential memories for user {input.user_id}")
 
         return ContextWindow(system_instruction=system_instruction, contents=input.contents)
 
@@ -372,6 +526,8 @@ class ChromaMemory(GeminiMemory):
                     user_id=metadata["user_id"],
                     timestamp=metadata["timestamp"],
                     section_id=metadata["section_id"],
+                    property_id=metadata["property_id"],
+                    property_value_index=metadata["property_value_index"],
                 )
                 for document, distance, metadata in zip(
                     results["documents"][0],
@@ -397,6 +553,8 @@ class ChromaMemory(GeminiMemory):
                 user_id=metadata["user_id"],
                 timestamp=metadata["timestamp"],
                 section_id=metadata["section_id"],
+                property_id=metadata["property_id"],
+                property_value_index=metadata["property_value_index"],
             )
             for document, metadata in zip(memories["documents"], memories["metadatas"])
         ]
@@ -406,9 +564,9 @@ class ChromaMemory(GeminiMemory):
         Add a new memory to the ChromaDB collection.
         """
         self.memory_collection.add(
-            documents=[memory.content],
+            documents=[memory.get_content_to_embed(self.memory_config)],
             ids=[memory.id],
-            metadatas=[{"user_id": memory.user_id, "timestamp": memory.timestamp, "section_id": memory.section_id}],
+            metadatas=[memory.model_dump()],
         )
 
 
@@ -452,21 +610,67 @@ with gr.Blocks(fill_height=True, fill_width=True) as demo:
             flagging_mode="never",
         )
     with gr.Tab("Post"):
+        section_ids = [section.id for section in memory.memory_config.sections]
+        property_ids = {
+            section.id: [property.name for property in section.properties] for section in memory.memory_config.sections
+        }
+        properties = {
+            section.id: {property.name: property.type for property in section.properties}
+            for section in memory.memory_config.sections
+        }
+        properties_update_methods = {
+            section.id: {property.name: property.update_method for property in section.properties}
+            for section in memory.memory_config.sections
+        }
+        section_types = {section.id: section.type for section in memory.memory_config.sections}
         content_input = gr.Textbox(label="Content", lines=5, scale=1)
         user_id_input = gr.Textbox(label="User ID", value="user_1", scale=0)
-        section_id_input = gr.Textbox(label="Section ID", value="user_profile", scale=0)
+        section_id_input = gr.Dropdown(label="Section ID", value=section_ids[0], choices=section_ids, scale=0)
+        property_id_input = gr.Dropdown(
+            label="Property ID",
+            value=property_ids[section_ids[0]][0],
+            choices=property_ids[section_ids[0]],
+            scale=0,
+        )
+
+        def get_property_value_index_enabled(section_id: str, property_id: str) -> bool:
+            return properties[section_id][property_id] == "list"
+
+        property_value_index_input = gr.Number(
+            label="Property Value Index",
+            value=0,
+            scale=0,
+            interactive=get_property_value_index_enabled(section_ids[0], property_ids[section_ids[0]][0]),
+        )
         post_button = gr.Button("Post Memory", scale=0)
 
-        def post_memory(content: str, user_id: str, section_id: str) -> None:
+        section_id_input.change(
+            fn=lambda section: gr.update(choices=property_ids[section], value=property_ids[section][0]),
+            inputs=section_id_input,
+            outputs=property_id_input,
+        ).then(
+            fn=lambda section, property: gr.update(interactive=get_property_value_index_enabled(section, property)),
+            inputs=[section_id_input, property_id_input],
+            outputs=property_value_index_input,
+        )
+
+        def post_memory(
+            content: str, user_id: str, section_id: str, property_id: str, property_value_index: int
+        ) -> None:
             memory.post(
                 MemoryEntry(
-                    content=content, user_id=user_id, timestamp=datetime.now().isoformat(), section_id=section_id
+                    content=content,
+                    user_id=user_id,
+                    timestamp=datetime.now().isoformat() if section_types[section_id] == "procedural" else "",
+                    section_id=section_id,
+                    property_id=property_id,
+                    property_value_index=property_value_index,
                 )
             )
 
         post_button.click(
             fn=post_memory,
-            inputs=[content_input, user_id_input, section_id_input],
+            inputs=[content_input, user_id_input, section_id_input, property_id_input, property_value_index_input],
             outputs=None,
         ).success(fn=lambda: gr.Info("Memory posted successfully"), inputs=None, outputs=None).then(
             fn=lambda: gr.update(value=""),
