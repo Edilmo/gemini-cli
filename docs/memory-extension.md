@@ -80,15 +80,17 @@ For the CLI to load the extension, it needs to be in a `.gemini/extensions` dire
 **Option A: Workspace Installation**
 
 ```bash
-mkdir -p .gemini/extensions
-cp -r gca_extension .gemini/extensions/memory-extension
+mkdir -p .gemini/extensions/memory-extension
+cp gca_extension/gemini-extension.json .gemini/extensions/memory-extension
+cp gca_extension/index.ts .gemini/extensions/memory-extension
 ```
 
 **Option B: Global Installation**
 
 ```bash
-mkdir -p ~/.gemini/extensions
-cp -r gca_extension ~/.gemini/extensions/memory-extension
+mkdir -p ~/.gemini/extensions/memory-extension
+cp gca_extension/gemini-extension.json ~/.gemini/extensions/memory-extension
+cp gca_extension/index.ts ~/.gemini/extensions/memory-extension
 ```
 
 **Option C: Development Symlink**
@@ -175,8 +177,11 @@ The extension communicates with the Python server using the following API:
 
 The Gradio web interface at `http://127.0.0.1:7860/ui` provides:
 
-- **Memory Enhancement Test**: Test the memory enhancement functionality
-- **Admin Panel**: View all stored memories and manually add new ones
+- **Put**: Enhance context windows with memories and store interactions
+- **Post**: Add new memories to specific sections and properties
+- **List**: View all stored memories in the database
+- **Search**: Search through memories using semantic search
+- **Session Log**: View the log of calls to the put API endpoint
 
 ### Testing
 
