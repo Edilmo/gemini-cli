@@ -11,7 +11,6 @@ import { spawn } from 'child_process';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { writeFileSync, mkdirSync, cpSync } from 'fs';
-import esbuild from 'esbuild';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const projectRoot = join(__dirname, '..');
