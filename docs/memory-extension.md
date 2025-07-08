@@ -2,7 +2,10 @@
 
 The Gemini CLI supports a powerful extensibility point that allows for the dynamic modification of prompts sent to the language model. This is achieved through the `PromptEnhancer` interface, which enables the creation of extensions that can inspect, modify, and enhance the conversation history and system instructions before they are processed by the model.
 
-This document provides an overview of the `PromptEnhancer` interface and walks through an example of a memory extension that uses a local vector database to provide the model with long-term memory.
+This document provides an overview of the `PromptEnhancer` interface and walks through two implementations of memory extensions:
+
+1. **Local Development Version**: Uses a local vector database (ChromaDB) and Python server
+2. **Production Version**: Uses Google Cloud Assist Core API for enterprise-grade memory capabilities
 
 ## The `PromptEnhancer` Interface
 
@@ -13,10 +16,10 @@ export interface PromptEnhancer {
   name: string;
   enhance(
     userId: string,
-    systemInstruction: string | Part | undefined,
+    systemInstruction: ContentUnion | undefined,
     contents: Content[],
   ): Promise<{
-    systemInstruction: string | Part | undefined;
+    systemInstruction: ContentUnion | undefined;
     contents: Content[];
   }>;
 }
@@ -25,25 +28,27 @@ export interface PromptEnhancer {
 Any object that implements this interface can be loaded by the CLI and will have its `enhance` method called for every prompt. The method receives:
 
 - `userId`: The user identifier from the session
-- `systemInstruction`: The current system instruction
-- `contents`: The conversation contents
+- `systemInstruction`: The current system instruction (can be string, Part, or Content)
+- `contents`: The conversation contents as Content objects
 
 The method is expected to return them, potentially modified.
 
-## Example: A Memory Extension with Vector Database
+## Memory Extension Implementations
 
-We have created a memory extension that uses a local vector database (ChromaDB) and a FastAPI-based Python server to provide the CLI with long-term memory capabilities.
+### 1. Local Development Version (Python Server)
 
-### Architecture
+This implementation uses a local vector database (ChromaDB) and a FastAPI-based Python server to provide the CLI with long-term memory capabilities.
 
-1. **The Extension:** The TypeScript extension (`gca_extension/index.ts`) intercepts prompts and sends them to a local Python server via FastAPI.
+#### Architecture
+
+1. **The Extension:** The JavaScript extension (`gca_extension/index.js`) intercepts prompts and sends them to a local Python server via FastAPI.
 2. **The Server:** The Python server (`gca_extension/python/src/gca_memory_simulator/gradio_app.py`) receives the conversation, generates embeddings for the user's latest message, and queries a ChromaDB database for relevant past interactions.
 3. **Enhancement:** Retrieved memories are prepended to the system instruction, providing the model with relevant context from past conversations.
 4. **Storage:** The server stores current user messages and model responses in the database, continually expanding its memory.
 
-### Setup Instructions
+#### Setup Instructions
 
-#### 1. Install Python Dependencies
+##### 1. Install Python Dependencies
 
 Navigate to the Python server directory and install dependencies using `uv`:
 
@@ -52,7 +57,7 @@ cd gca_extension/python
 uv sync
 ```
 
-#### 2. Set Up Environment Variables
+##### 2. Set Up Environment Variables
 
 Ensure you have the `GEMINI_API_KEY` environment variable set:
 
@@ -60,7 +65,7 @@ Ensure you have the `GEMINI_API_KEY` environment variable set:
 export GEMINI_API_KEY=your_api_key_here
 ```
 
-#### 3. Start the Python Server
+##### 3. Start the Python Server
 
 Run the FastAPI server using uvicorn:
 
@@ -73,66 +78,168 @@ This will start:
 - A FastAPI server at `http://127.0.0.1:7860` with the memory enhancement API
 - A Gradio web interface at `http://127.0.0.1:7860/ui` for administration
 
-#### 4. Install the Extension
+##### 4. Use the Local Extension
 
-For the CLI to load the extension, it needs to be in a `.gemini/extensions` directory in either your workspace or home directory.
+**Option A: Direct Extension File (Recommended)**
 
-**Option A: Workspace Installation**
+```bash
+gemini --extension-file gca_extension/gemini-extension.json
+```
 
+**Option B: Install to Extensions Directory**
+
+For the CLI to automatically load the extension, install it to a `.gemini/extensions` directory:
+
+*Workspace Installation:*
 ```bash
 mkdir -p .gemini/extensions/memory-extension
-cp gca_extension/gemini-extension.json .gemini/extensions/memory-extension
-cp gca_extension/index.ts .gemini/extensions/memory-extension
+cp gca_extension/gemini-extension.json .gemini/extensions/memory-extension/
+cp gca_extension/index.js .gemini/extensions/memory-extension/
 ```
 
-**Option B: Global Installation**
-
+*Global Installation:*
 ```bash
 mkdir -p ~/.gemini/extensions/memory-extension
-cp gca_extension/gemini-extension.json ~/.gemini/extensions/memory-extension
-cp gca_extension/index.ts ~/.gemini/extensions/memory-extension
+cp gca_extension/gemini-extension.json ~/.gemini/extensions/memory-extension/
+cp gca_extension/index.js ~/.gemini/extensions/memory-extension/
 ```
 
-**Option C: Development Symlink**
-
+*Development Symlink:*
 ```bash
 mkdir -p .gemini/extensions
 ln -s "$(pwd)/gca_extension" .gemini/extensions/memory-extension
 ```
 
-#### 5. Build the Extension
-
-Since the extension is written in TypeScript, you need to compile it to JavaScript:
-
+Then run the CLI normally:
 ```bash
-cd .gemini/extensions/memory-extension
-# Compile TypeScript to JavaScript
-npx tsc index.ts --target es2022 --module es2022 --moduleResolution node
+gemini
 ```
 
-### Using the Extension
+### 2. Production Version (Google Cloud Platform)
 
-Once the server is running and the extension is installed, run the Gemini CLI:
+This implementation uses Google Cloud Assist Core API for enterprise-grade memory capabilities with proper authentication and scalability.
 
+#### Architecture
+
+1. **The Extension:** The JavaScript extension (`gca_extension/index-gca.js`) implements the `PromptEnhancer` interface with proper type conversions.
+2. **Authentication:** Uses Google Cloud Application Default Credentials for secure API access.
+3. **Type Handling:** Converts between `ContentUnion`/`Content` types and the API's string format.
+4. **API Integration:** Calls the Google Cloud Assist Core Memory Access API for enhanced context.
+
+#### Setup Instructions
+
+##### 1. Install Dependencies
+
+Navigate to the extension directory and install Node.js dependencies:
+
+```bash
+cd gca_extension
+npm install
+```
+
+##### 2. Configure Google Cloud Authentication
+
+Set up Google Cloud credentials:
+
+```bash
+gcloud auth application-default login
+```
+
+Ensure your credentials are available at:
+```
+~/.config/gcloud/application_default_credentials.json
+```
+
+##### 3. Test the Extension
+
+Run the test suite to verify functionality:
+
+```bash
+cd gca_extension
+npm test
+```
+
+##### 4. Use the GCP Extension
+
+**Option A: Direct Extension File (Recommended)**
+
+```bash
+gemini --extension-file gca_extension/gemini-extension-gca.json
+```
+
+**Option B: Install to Extensions Directory**
+
+For the CLI to automatically load the extension, install it to a `.gemini/extensions` directory:
+
+*Workspace Installation:*
+```bash
+mkdir -p .gemini/extensions/gca-memory-extension
+cp gca_extension/gemini-extension-gca.json .gemini/extensions/gca-memory-extension/
+cp gca_extension/index-gca.js .gemini/extensions/gca-memory-extension/
+```
+
+*Global Installation:*
+```bash
+mkdir -p ~/.gemini/extensions/gca-memory-extension
+cp gca_extension/gemini-extension-gca.json ~/.gemini/extensions/gca-memory-extension/
+cp gca_extension/index-gca.js ~/.gemini/extensions/gca-memory-extension/
+```
+
+*Development Symlink:*
+```bash
+mkdir -p .gemini/extensions
+ln -s "$(pwd)/gca_extension" .gemini/extensions/gca-memory-extension
+```
+
+Then run the CLI normally:
 ```bash
 gemini
 ```
 
 You should see a message indicating the memory extension has been loaded:
-
 ```
-Loading extension: simple-memory-extension (version: 1.0.0)
+Loading extension: gca-memory-extension (version: 1.0.0)
 ```
 
-The extension will:
+## Extension Configuration Files
 
-- Automatically enhance prompts with relevant memories from past conversations
-- Store new interactions in the vector database
-- Provide seamless long-term memory capabilities
+### Local Development Configuration (`gemini-extension.json`)
 
-### API Contract
+```json
+{
+  "name": "simple-memory-extension",
+  "version": "1.0.0",
+  "description": "Memory extension using local Python server",
+  "main": "index.js",
+  "type": "prompt-enhancer"
+}
+```
 
-The extension communicates with the Python server using the following API:
+### Production Configuration (`gemini-extension-gca.json`)
+
+```json
+{
+  "name": "gca-memory-enhancer",
+  "version": "1.0.0",
+  "description": "Google Cloud Assist Memory Extension for enhanced conversations using GCP APIs",
+  "main": "index-gca.js",
+  "type": "prompt-enhancer",
+  "capabilities": {
+    "memory": true,
+    "context_enhancement": true,
+    "conversation_history": true
+  },
+  "configuration": {
+    "api_endpoint": "https://cloudassistcore-pa.googleapis.com/v1/coretools:memoryaccess",
+    "max_total_tokens": 32000,
+    "authentication": "google_cloud_credentials"
+  }
+}
+```
+
+## API Contracts
+
+### Local Python Server API
 
 **Endpoint:** `POST /api/put`
 
@@ -173,7 +280,85 @@ The extension communicates with the Python server using the following API:
 }
 ```
 
-### Administration Interface
+### Google Cloud Assist Core API
+
+**Endpoint:** `POST /v1/coretools:memoryaccess`
+
+**Request Body:**
+
+```json
+{
+  "textRequest": {
+    "prompt": "system instruction string",
+    "messages": ["array", "of", "message", "strings"]
+  },
+  "inferenceContext": {
+    "maxTotalTokens": "32000"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "textRequest": {
+    "prompt": "enhanced system instruction",
+    "messages": ["enhanced", "message", "array"]
+  },
+  "memoryApplied": true
+}
+```
+
+## Type Conversions (GCP Version)
+
+The GCP extension handles complex type conversions:
+
+### Input Processing
+- `ContentUnion | undefined` → `Content` → `string`
+- `Content[]` → `string[]`
+
+### Output Processing
+- API `string` responses → original `ContentUnion` types
+- Preserves original structure (roles, parts, etc.)
+
+### Key Functions
+
+- **`toContent()`** - Converts ContentUnion to Content objects
+- **`contentToString()`** - Extracts text from Content for API calls
+- **`contentsToStrings()`** - Converts Content arrays to string arrays
+- **`stringsToContents()`** - Converts API strings back to Content objects
+- **`stringToContentUnion()`** - Restores original ContentUnion types
+
+## Testing
+
+### Local Version Testing
+
+An E2E test is available to verify the extension works correctly:
+
+```bash
+# Run the specific memory extension test
+npm test -- integration-tests/memory-extension.test.js
+```
+
+### GCP Version Testing
+
+Test the GCP extension in isolation:
+
+```bash
+cd gca_extension
+npm test
+```
+
+The test will:
+
+1. Load the memory enhancer
+2. Test with sample conversation data
+3. Make API calls to Google Cloud Assist Core API
+4. Display input/output for verification
+5. Handle API failures gracefully
+
+## Administration Interface (Local Version Only)
 
 The Gradio web interface at `http://127.0.0.1:7860/ui` provides:
 
@@ -183,32 +368,40 @@ The Gradio web interface at `http://127.0.0.1:7860/ui` provides:
 - **Search**: Search through memories using semantic search
 - **Session Log**: View the log of calls to the put API endpoint
 
-### Testing
+## Error Handling
 
-An E2E test is available to verify the extension works correctly:
+Both extensions include robust error handling:
 
-```bash
-# Run the specific memory extension test
-npm test -- integration-tests/memory-extension.test.js
-```
-
-The test will:
-
-1. Start the Python server
-2. Set up the extension in a test environment
-3. Test memory storage and retrieval
-4. Verify graceful handling of server downtime
-
-### Error Handling
-
-The extension includes robust error handling:
-
-- If the Python server is unavailable, prompts are passed through unchanged
+- If the server/API is unavailable, prompts are passed through unchanged
 - Network errors are logged but don't interrupt the CLI operation
-- Invalid responses from the server are handled gracefully
+- Invalid responses are handled gracefully
+- Authentication failures (GCP version) fall back to original content
 
-### Memory Persistence
+## Choosing Between Implementations
 
-Memories are stored in a ChromaDB database that persists across sessions. The database is created automatically and stored locally, ensuring your conversation history is maintained between CLI sessions.
+### Use Local Version When:
+- Developing and testing locally
+- Need full control over memory storage
+- Want to customize memory retrieval logic
+- Working in environments without GCP access
 
-This extension demonstrates how the `PromptEnhancer` interface can be used to create sophisticated extensions that augment the functionality of the Gemini CLI with long-term memory capabilities.
+### Use GCP Version When:
+- Deploying to production environments
+- Need enterprise-grade scalability and reliability
+- Want integrated Google Cloud authentication
+- Require consistent performance across teams
+
+## Security Considerations
+
+### Local Version
+- Memory data stored locally in ChromaDB
+- No external data transmission (except to local server)
+- API key required for embedding generation
+
+### GCP Version
+- Authenticated via Google Cloud credentials
+- All communication over HTTPS
+- No sensitive data logged in error messages
+- Follows Google Cloud security standards
+
+This extension demonstrates how the `PromptEnhancer` interface can be used to create sophisticated extensions that augment the functionality of the Gemini CLI with long-term memory capabilities, whether for local development or production deployment.
