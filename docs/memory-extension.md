@@ -90,27 +90,31 @@ gemini --extension-file gca_extension/gemini-extension.json
 
 For the CLI to automatically load the extension, install it to a `.gemini/extensions` directory:
 
-*Workspace Installation:*
+_Workspace Installation:_
+
 ```bash
 mkdir -p .gemini/extensions/memory-extension
 cp gca_extension/gemini-extension.json .gemini/extensions/memory-extension/
 cp gca_extension/index.js .gemini/extensions/memory-extension/
 ```
 
-*Global Installation:*
+_Global Installation:_
+
 ```bash
 mkdir -p ~/.gemini/extensions/memory-extension
 cp gca_extension/gemini-extension.json ~/.gemini/extensions/memory-extension/
 cp gca_extension/index.js ~/.gemini/extensions/memory-extension/
 ```
 
-*Development Symlink:*
+_Development Symlink:_
+
 ```bash
 mkdir -p .gemini/extensions
 ln -s "$(pwd)/gca_extension" .gemini/extensions/memory-extension
 ```
 
 Then run the CLI normally:
+
 ```bash
 gemini
 ```
@@ -146,6 +150,7 @@ gcloud auth application-default login
 ```
 
 Ensure your credentials are available at:
+
 ```
 ~/.config/gcloud/application_default_credentials.json
 ```
@@ -171,32 +176,37 @@ gemini --extension-file gca_extension/gemini-extension-gca.json
 
 For the CLI to automatically load the extension, install it to a `.gemini/extensions` directory:
 
-*Workspace Installation:*
+_Workspace Installation:_
+
 ```bash
 mkdir -p .gemini/extensions/gca-memory-extension
 cp gca_extension/gemini-extension-gca.json .gemini/extensions/gca-memory-extension/
 cp gca_extension/index-gca.js .gemini/extensions/gca-memory-extension/
 ```
 
-*Global Installation:*
+_Global Installation:_
+
 ```bash
 mkdir -p ~/.gemini/extensions/gca-memory-extension
 cp gca_extension/gemini-extension-gca.json ~/.gemini/extensions/gca-memory-extension/
 cp gca_extension/index-gca.js ~/.gemini/extensions/gca-memory-extension/
 ```
 
-*Development Symlink:*
+_Development Symlink:_
+
 ```bash
 mkdir -p .gemini/extensions
 ln -s "$(pwd)/gca_extension" .gemini/extensions/gca-memory-extension
 ```
 
 Then run the CLI normally:
+
 ```bash
 gemini
 ```
 
 You should see a message indicating the memory extension has been loaded:
+
 ```
 Loading extension: gca-memory-extension (version: 1.0.0)
 ```
@@ -315,10 +325,12 @@ Loading extension: gca-memory-extension (version: 1.0.0)
 The GCP extension handles complex type conversions:
 
 ### Input Processing
+
 - `ContentUnion | undefined` → `Content` → `string`
 - `Content[]` → `string[]`
 
 ### Output Processing
+
 - API `string` responses → original `ContentUnion` types
 - Preserves original structure (roles, parts, etc.)
 
@@ -380,12 +392,14 @@ Both extensions include robust error handling:
 ## Choosing Between Implementations
 
 ### Use Local Version When:
+
 - Developing and testing locally
 - Need full control over memory storage
 - Want to customize memory retrieval logic
 - Working in environments without GCP access
 
 ### Use GCP Version When:
+
 - Deploying to production environments
 - Need enterprise-grade scalability and reliability
 - Want integrated Google Cloud authentication
@@ -394,11 +408,13 @@ Both extensions include robust error handling:
 ## Security Considerations
 
 ### Local Version
+
 - Memory data stored locally in ChromaDB
 - No external data transmission (except to local server)
 - API key required for embedding generation
 
 ### GCP Version
+
 - Authenticated via Google Cloud credentials
 - All communication over HTTPS
 - No sensitive data logged in error messages
