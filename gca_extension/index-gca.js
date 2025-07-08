@@ -18,7 +18,10 @@ const auth = new google.auth.GoogleAuth({
 /**
  * Base URL for the Cloud Assist Core API.
  */
-const CLOUD_ASSIST_CORE_API_URL = "https://cloudassistcore-pa.googleapis.com";
+// const CLOUD_ASSIST_CORE_API_URL = "https://cloudassistcore-pa.googleapis.com";
+const CLOUD_ASSIST_CORE_API_URL = "https://cloudassistcore-pa-staging.googleapis.com";
+// const CLOUD_ASSIST_CORE_API_URL = "https://cloudassistcore-pa.sandbox.googleapis.com";
+
 
 /**
  * Maximum total tokens allowed for memory access requests.
