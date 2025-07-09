@@ -80,14 +80,6 @@ This will start:
 
 ##### 4. Use the Local Extension
 
-**Option A: Direct Extension File (Recommended)**
-
-```bash
-gemini --extension-file gca_extension/gemini-extension.json
-```
-
-**Option B: Install to Extensions Directory**
-
 For the CLI to automatically load the extension, install it to a `.gemini/extensions` directory:
 
 _Workspace Installation:_
@@ -139,6 +131,7 @@ Navigate to the extension directory and install Node.js dependencies:
 ```bash
 cd gca_extension
 npm install
+cd ..
 ```
 
 ##### 2. Configure Google Cloud Authentication
@@ -162,17 +155,10 @@ Run the test suite to verify functionality:
 ```bash
 cd gca_extension
 npm test
+cd ..
 ```
 
 ##### 4. Use the GCP Extension
-
-**Option A: Direct Extension File (Recommended)**
-
-```bash
-gemini --extension-file gca_extension/gemini-extension-gca.json
-```
-
-**Option B: Install to Extensions Directory**
 
 For the CLI to automatically load the extension, install it to a `.gemini/extensions` directory:
 
@@ -195,8 +181,9 @@ cp gca_extension/index-gca.js ~/.gemini/extensions/gca-memory-extension/
 _Development Symlink:_
 
 ```bash
-mkdir -p .gemini/extensions
-ln -s "$(pwd)/gca_extension" .gemini/extensions/gca-memory-extension
+mkdir -p .gemini/extensions/gca-memory-extension
+ln -s "$(pwd)/gca_extension/gemini-extension-gca.json" .gemini/extensions/gca-memory-extension/gemini-extension.json
+ln -s "$(pwd)/gca_extension/index-gca.js" .gemini/extensions/gca-memory-extension/index-gca.js
 ```
 
 Then run the CLI normally:
@@ -360,6 +347,7 @@ Test the GCP extension in isolation:
 ```bash
 cd gca_extension
 npm test
+cd ..
 ```
 
 The test will:

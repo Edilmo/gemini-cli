@@ -21,6 +21,8 @@ const auth = new google.auth.GoogleAuth({
 // const CLOUD_ASSIST_CORE_API_URL = "https://cloudassistcore-pa.googleapis.com";
 const CLOUD_ASSIST_CORE_API_URL = "https://cloudassistcore-pa-staging.googleapis.com";
 // const CLOUD_ASSIST_CORE_API_URL = "https://cloudassistcore-pa.sandbox.googleapis.com";
+const LOCAL_GCA_TOOLS_PROXY_URL = "http://localhost:8080";
+const USE_LOCAL_GCA_TOOLS_PROXY = true;
 
 
 /**
@@ -176,11 +178,16 @@ function stringToContentUnion(str, originalContent) {
  */
 async function enhanceWithMemory(userId, systemInstruction, contents) {
   try {
-    const authClient = await auth.getClient();
-    const accessToken = await authClient.getAccessToken();
+    let accessToken = null;
     
-    if (!accessToken.token) {
-      throw new Error('Failed to obtain access token');
+    // Only get auth token if using cloud API
+    if (!USE_LOCAL_GCA_TOOLS_PROXY) {
+      const authClient = await auth.getClient();
+      accessToken = await authClient.getAccessToken();
+      
+      if (!accessToken.token) {
+        throw new Error('Failed to obtain access token');
+      }
     }
 
     // Convert inputs to the format expected by the API
@@ -203,13 +210,24 @@ async function enhanceWithMemory(userId, systemInstruction, contents) {
       };
     }
 
-    const response = await fetch(`${CLOUD_ASSIST_CORE_API_URL}/v1/coretools:memoryaccess`, {
+    // Determine URL and headers based on proxy setting
+    const apiUrl = USE_LOCAL_GCA_TOOLS_PROXY 
+      ? `${LOCAL_GCA_TOOLS_PROXY_URL}/v1/coretools:memoryaccess`
+      : `${CLOUD_ASSIST_CORE_API_URL}/v1/coretools:memoryaccess`;
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
+
+    // Add authorization header only for cloud API
+    if (!USE_LOCAL_GCA_TOOLS_PROXY && accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken.token}`;
+    }
+
+    const response = await fetch(apiUrl, {
       method: "POST",
-      headers: {
-        'Authorization': `Bearer ${accessToken.token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
+      headers,
       body: JSON.stringify(requestBody)
     });
 

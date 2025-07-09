@@ -8,7 +8,7 @@ async function testMemoryEnhancer() {
   
   // Test data
   const userId = 'test-user-123';
-  const systemInstruction = 'You are a helpful assistant.';
+  const systemInstruction = 'You are Gemini CLI tool responding to user`s questions about Google Cloud development and debugging.';
   const contents = [
     {
       role: 'user',
@@ -20,7 +20,7 @@ async function testMemoryEnhancer() {
     },
     {
       role: 'user',
-      parts: [{ text: 'Can you help me with coding?' }]
+      parts: [{ text: 'I get an error about "cloudfunctions.functions.create" permission. Query Audit logs and help me debug please.' }]
     }
   ];
 
