@@ -41,7 +41,7 @@ describe('loadExtensions', () => {
     fs.rmSync(tempHomeDir, { recursive: true, force: true });
   });
 
-  it('should load context file path when GEMINI.md is present', () => {
+  it('should load context file path when GEMINI.md is present', async () => {
     const workspaceExtensionsDir = path.join(
       tempWorkspaceDir,
       EXTENSIONS_DIRECTORY_NAME,
@@ -50,7 +50,7 @@ describe('loadExtensions', () => {
     createExtension(workspaceExtensionsDir, 'ext1', '1.0.0', true);
     createExtension(workspaceExtensionsDir, 'ext2', '2.0.0');
 
-    const extensions = loadExtensions(tempWorkspaceDir);
+    const extensions = await loadExtensions(tempWorkspaceDir);
 
     expect(extensions).toHaveLength(2);
     const ext1 = extensions.find((e) => e.config.name === 'ext1');
@@ -61,7 +61,7 @@ describe('loadExtensions', () => {
     expect(ext2?.contextFiles).toEqual([]);
   });
 
-  it('should load context file path from the extension config', () => {
+  it('should load context file path from the extension config', async () => {
     const workspaceExtensionsDir = path.join(
       tempWorkspaceDir,
       EXTENSIONS_DIRECTORY_NAME,
@@ -75,13 +75,65 @@ describe('loadExtensions', () => {
       'my-context-file.md',
     );
 
-    const extensions = loadExtensions(tempWorkspaceDir);
+    const extensions = await loadExtensions(tempWorkspaceDir);
 
     expect(extensions).toHaveLength(1);
     const ext1 = extensions.find((e) => e.config.name === 'ext1');
     expect(ext1?.contextFiles).toEqual([
       path.join(workspaceExtensionsDir, 'ext1', 'my-context-file.md'),
     ]);
+  });
+
+  it('should load input prompt enhancer from the extension config', async () => {
+    const workspaceExtensionsDir = path.join(
+      tempWorkspaceDir,
+      EXTENSIONS_DIRECTORY_NAME,
+    );
+    fs.mkdirSync(workspaceExtensionsDir, { recursive: true });
+
+    const promptEnhancerPath = 'prompt_enhancer.js';
+    createExtension(
+      workspaceExtensionsDir,
+      'ext1',
+      '1.0.0',
+      false,
+      undefined,
+      promptEnhancerPath,
+    );
+
+    const promptEnhancerContent = `
+      export default {
+        name: 'test-enhancer',
+        async enhance(userId, systemInstruction, contents) {
+          // we'll just append a dummy part so the test can assert behaviour
+          return {
+            systemInstruction: 'modified system instruction',
+            contents: [...contents, { role: 'user', parts: [{ text: 'modified' }] }],
+          };
+        },
+      };
+    `;
+    fs.writeFileSync(
+      path.join(workspaceExtensionsDir, 'ext1', promptEnhancerPath),
+      promptEnhancerContent,
+    );
+
+    const extensions = await loadExtensions(tempWorkspaceDir);
+    expect(extensions).toHaveLength(1);
+    const ext1 = extensions.find((e) => e.config.name === 'ext1');
+    expect(ext1?.promptEnhancer).toBeDefined();
+
+    if (ext1?.promptEnhancer) {
+      const result = await ext1.promptEnhancer.enhance(
+        'test-user-id',
+        'system instruction',
+        [],
+      );
+      expect(result.systemInstruction).toBe('modified system instruction');
+      expect(result.contents).toEqual([
+        { role: 'user', parts: [{ text: 'modified' }] },
+      ]);
+    }
   });
 });
 
@@ -91,12 +143,13 @@ function createExtension(
   version: string,
   addContextFile = false,
   contextFileName?: string,
+  promptEnhancerPath?: string,
 ): void {
   const extDir = path.join(extensionsDir, name);
   fs.mkdirSync(extDir);
   fs.writeFileSync(
     path.join(extDir, EXTENSIONS_CONFIG_FILENAME),
-    JSON.stringify({ name, version, contextFileName }),
+    JSON.stringify({ name, version, contextFileName, promptEnhancerPath }),
   );
 
   if (addContextFile) {

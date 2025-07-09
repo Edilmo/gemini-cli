@@ -1,0 +1,17 @@
+{
+  "name": "gca_extension",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node test-memory-enhancer.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "googleapis": "^140.0.0",
+    "@google/genai": "^1.8.0"
+  }
+}

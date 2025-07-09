@@ -1,0 +1,5 @@
+{
+    "name": "gca-memory-extension",
+    "version": "1.0.0",
+    "promptEnhancerPath": "index-gca.js"
+}

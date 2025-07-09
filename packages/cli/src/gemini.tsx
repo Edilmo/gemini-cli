@@ -100,7 +100,7 @@ export async function main() {
     process.exit(1);
   }
 
-  const extensions = loadExtensions(workspaceRoot);
+  const extensions = await loadExtensions(workspaceRoot);
   const config = await loadCliConfig(settings.merged, extensions, sessionId);
 
   // set default fallback to gemini api key

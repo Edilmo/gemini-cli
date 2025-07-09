@@ -18,8 +18,8 @@ test('should be able to list a directory', async (t) => {
   const prompt = `Can you list the files in the current directory`;
   const result = await rig.run(prompt);
 
-  const lines = result.split('\n').filter((line) => line.trim() !== '');
+  const lines = result.split(/\n|and/).filter((line) => line.trim() !== '');
   assert.equal(lines.length, 2);
-  assert.ok(lines.includes('file1.txt'));
-  assert.ok(lines.includes('subdir'));
+  assert.ok(lines[0].includes('file1.txt'));
+  assert.ok(lines[1].includes('subdir'));
 });

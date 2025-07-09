@@ -44,6 +44,7 @@ describe('GeminiChat', () => {
       getModel: vi.fn().mockReturnValue('gemini-pro'),
       setModel: vi.fn(),
       flashFallbackHandler: undefined,
+      getPromptEnhancers: vi.fn().mockReturnValue([]),
     } as unknown as Config;
 
     // Disable 429 simulation for tests

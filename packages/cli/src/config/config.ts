@@ -18,6 +18,7 @@ import {
   DEFAULT_GEMINI_EMBEDDING_MODEL,
   FileDiscoveryService,
   TelemetryTarget,
+  PromptEnhancer,
 } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
 
@@ -198,6 +199,13 @@ export async function loadCliConfig(
 
   const sandboxConfig = await loadSandboxConfig(settings, argv);
 
+  const promptEnhancers = extensions
+    .filter(
+      (ext): ext is Extension & { promptEnhancer: PromptEnhancer } =>
+        ext.promptEnhancer !== undefined,
+    )
+    .map((ext) => ext.promptEnhancer);
+
   return new Config({
     sessionId,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
@@ -246,6 +254,7 @@ export async function loadCliConfig(
     bugCommand: settings.bugCommand,
     model: argv.model!,
     extensionContextFilePaths,
+    promptEnhancers,
   });
 }
 

@@ -13,6 +13,7 @@ bower_components
 # Editors
 .idea
 *.iml
+.cursorrules
 
 # OS metadata
 .DS_Store
@@ -36,3 +37,13 @@ packages/*/coverage/
 # Generated files
 packages/cli/src/generated/
 .integration-tests/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pyi
+chroma/
