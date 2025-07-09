@@ -1,0 +1,273 @@
+########################################################
+# Memory Layout and Schema
+########################################################
+#
+# The memory define the following concepts:
+# - types: allows to classify memories according to the ontological nature of the
+#   information they contain. They map directly to the classical type of memories
+#   in neuroscience and AI.
+# - section categories: allows to classify memory sections according to the common
+#   purpose they have with respect to the utility they provide to the agent.
+# - sections: group of memories that belongs to the same subject or topic.
+#
+# Notes:
+# - memory schema are not defined strictly neither exhaustive, instead they are a guide
+#   for the agent to use when creating new memories in a particular section.
+# - suggested_properties in memory schema are always treated as string for simplicity.
+#   Because of it, the type can be omitted unless the property is a list, in which case
+#   the type is expected to be a list of strings.
+# - update_method is used to specify how the agent should update the property.  This is
+#   specially useful for property schemas that are lists. The default is replace.
+#
+types:
+  - id: semantic
+    name: Semantic
+    description: |
+      Semantic memory refers to general world knowledge that has been accumulated
+      by an agent over time. It is factual, and not tied to any specific time or place.
+  - id: episodic
+    name: Episodic
+    description: |
+      Episodic memory refers to the collection of past experiences that occurred
+      at particular times and places. It helps the agent learn from experience,
+      adapting its behavior based on what has worked before.
+  - id: procedural
+    name: Procedural
+    description: |
+      Procedural memory refers to procedures acquire through procedural learning,
+      or repeating a complex activity over and over again until relevant learnings
+      are produce to aid the performance of particular types of tasks without explicit
+      recall of the experiences that led to the learnings.
+      It helps the agent learn from experience, adapting its responses based on what
+      has worked before.
+section_categories:
+  - id: user_personalization
+    name: User Personalization
+    description: |
+      Personal information provided by the user about themselves
+    written_by: user
+  - id: system_personalization
+    name: System Personalization
+    description: |
+      Information about the systems that are relevant to the user
+    written_by: system
+  - id: know_how
+    name: Know How
+    description:
+      General knowledge relevant to the user, the agent, and the tasks both of them
+      are expected to perform
+    written_by: system
+sections:
+  - id: user_info
+    name: User Info
+    description: |
+      Personal information provided by the user about themselves.
+      This includes: Name, email, phone, address, company, industry, etc.
+    category: user_personalization
+    type: semantic
+    schema:
+      suggested_properties:
+        - name: name
+          description: "The user's name"
+          context_window_prefix: "User name:"
+          embedding_prefix: "User name:"
+        - name: email
+          description: "The user's email address"
+          context_window_prefix: "User email:"
+          embedding_prefix: "User email:"
+        - name: phone
+          description: "The user's phone number"
+          context_window_prefix: "User phone:"
+          embedding_prefix: "User phone:"
+        - name: address
+          description: "The user's address"
+          context_window_prefix: "User address:"
+          embedding_prefix: "User address:"
+        - name: company
+          description: "The user's company"
+          context_window_prefix: "User company:"
+          embedding_prefix: "User company:"
+        - name: industry
+          description: "The user's industry"
+          context_window_prefix: "User industry:"
+          embedding_prefix: "User industry:"
+        - name: job_title
+          description: "The user's job title"
+          context_window_prefix: "User job title:"
+          embedding_prefix: "User job title:"
+        - name: location
+          description: "The user's location"
+          context_window_prefix: "User location:"
+          embedding_prefix: "User location:"
+        - name: timezone
+          description: "The user's timezone"
+          context_window_prefix: "User timezone:"
+          embedding_prefix: "User timezone:"
+  - id: user_preferences
+    name: User Preferences
+    description: |
+      Preferences explicitly provided by the user himself.
+      This includes anything from preferred language or preferred tone of voice,
+      to preferred applications, systems, cloud services, etc.
+    category: user_personalization
+    type: semantic
+    schema:
+      suggested_properties:
+        - name: language
+          description: |
+            The user's preferred language
+          update_method: replace
+          context_window_prefix: "Preferred language the user wants the agent to be aware of:"
+          embedding_prefix: "Preferred language:"
+        - name: programming_languages
+          description: |
+            List of programming languages the user prefers for code examples
+          type: list
+          update_method: replace
+          context_window_prefix: "Preferred programming languages the user wants the agent to be aware of:"
+          embedding_prefix: "Preferred programming languages:"
+        - name: top_gcp_apps
+          description: |
+            List of Google Cloud Platform (GCP) applications (like those defined
+            in GCP Cloud Hub) the user commonly works with. Notice that GCP Apps
+            are difference to workloads and GCP services. Apps are the top level
+            entities that the user commonly works with. Apps are logical groups of
+            GCP Services and Workloads.
+          type: list
+          update_method: append
+          context_window_prefix: "Important GCP apps the user wants the agent to be aware of:"
+          embedding_prefix: "Important GCP apps:"
+        - name: top_gcp_services
+          description: |
+            List of Google Cloud Platform (GCP) services (like GKE, Cloud Storage
+            and BigQuery) the user commonly works with. Notice that GCP Services
+            are difference to apps and workloads. Services are the GCP provided
+            systems, typically enabled by the user through the GCP Console.
+          type: list
+          update_method: append
+          context_window_prefix: "Important GCP services the user wants the agent to be aware of:"
+          embedding_prefix: "Important GCP services:"
+        - name: top_gcp_workloads
+          description: |
+            List of Google Cloud Platform (GCP) workload types (like specific VMs,
+            GKE pods, etc) the user commonly works with. Notice that GCP Workloads
+            are difference to apps and services. Workloads are the user provided
+            logical compute units, like VMs actually running, GKE pods running in
+            a GKE cluster, etc.
+          type: list
+          update_method: append
+          context_window_prefix: "Important GCP workloads the user wants the agent to be aware of:"
+          embedding_prefix: "Important GCP workloads:"
+  - id: user_events
+    name: User Events
+    description: |
+      Events (factual) that the user has shared with the agent.
+      This is a Episodic memory that encodes what has happened to the user in any
+      aspect of the responsibilities and tasks the user and the agent are expected
+      to perform. Among these, events that are technical in nature, are expected to
+      be highly relevant to the agent to perform its tasks. One example are events
+      related to Google Cloud Platform (GCP) projects that the user and the agent are
+      expected to work with.
+    category: user_personalization
+    type: episodic
+    schema:
+      suggested_properties:
+        - name: user_events_entries
+          description: |
+            User provided events that are relevant to the agent to perform its tasks.
+            This is a list of factual events that the user has shared with the agent.
+            Example: "Datalake App in GCP is down"
+          update_method: append
+          context_window_prefix: "User event the agent should be aware of:"
+          embedding_prefix: "User event:"
+  - id: agent_customizations
+    name: Agent Customizations
+    description: |
+      Customizations made by the user to the agent in the shape of system instructions.
+      This includes both: instructions to the agent, and instructions to the agent's tools.
+      This is a Procedural memory that encodes how an agent should behave and respond.
+      It can start with parts of the system prompt that define fundamental behavior,
+      then evolves through feedback and experience. As the agent interacts with the user,
+      the agent can refine these instructions (system prompt), because either the user
+      directly expresses preferences, or the agent learns from experience which approaches work
+      best for different situations.
+    category: user_personalization
+    type: procedural
+    schema:
+      suggested_properties:
+        - name: planning_prompt
+          description: |
+            Instructions to the agent about how to plan its actions.
+            Used when the user might have expressed the desired to have shorter plans (fail fast),
+            or longer plans (fail safe), or both but depending on the context.
+            The agent can use this to decide how to plan its actions.
+            Example: "The agent should understand the complexity of the task and
+            plan its actions accordingly. If the task is complex, the agent should
+            plan a longer plan. If the task is simple, the agent should plan a
+            shorter plan."
+          update_method: replace
+          context_window_prefix: "Planning instructions that the agent should follow:"
+          embedding_prefix: "Planning instructions the agent follows:"
+        - name: tool_instructions
+          description: |
+            Instructions to the agent about how to use specific tools.
+            Used when the user might have expressed the desired to have some tasks
+            performed in a particular way, perhaps, depending on the context.
+            The agent can use this to decide which tools to use and how to use them.
+            Example: "The agent should use Google Cloud Assist and Investigations
+            (troubleshooting) API when the user asks for help with a technical issue.
+            as opposed to Google Cloud Platform (GCP) API, SDK, or CLI, which can
+            have suboptimal and longer response times."
+          update_method: append
+          context_window_prefix: "Tool instructions that the agent should follow:"
+          embedding_prefix: "Tool instructions the agent follows:"
+        - name: response_style
+          description: |
+            Instructions to the agent about how to respond to the user.
+            The user might have expressed the desired to have more or less verbose responses,
+            or more or less specific responses, or both but depending on the context.
+            The agent can use this to decide how to respond to the user.
+            Example: "The agent should respond to the user in a concise and to the point
+            manner. If the user asks for a detailed explanation, the agent should provide
+            a detailed explanation. If the user asks for a short answer, the agent should
+            provide a short answer."
+          update_method: replace
+          context_window_prefix: "The response style that the agent should use is the following:"
+          embedding_prefix: "Response style the agent uses:"
+        - name: tone_of_voice
+          description: |
+            Instructions to the agent about which tone of voice to use when responding to the user.
+            The user might have expressed the desired to be addressed in a particular way,
+            or to use a particular tone of voice, or both but depending on the context.
+            The agent can use this to decide how to address the user and which tone of voice to use.
+            Example: "The agent should address the user in a friendly and engaging manner
+            keeping the level of technical depth of the response appropriate to the context."
+          update_method: replace
+          context_window_prefix: "The tone of voice that the agent should use is the following:"
+          embedding_prefix: "Tone of voice the agent ue:"
+  - id: gcp_audit_logs_profile
+    name: GCP Audit Logs Profile
+    description: |
+      Relevant Google Cloud Platform (GCP) audit logs entries presented in a summarized way.
+      This is a Episodic memory that encodes what has happened in the GCP projects
+      the user and the agent are expected to work with.
+    category: system_personalization
+    type: episodic
+    schema:
+      suggested_properties:
+        - name: gcp_audit_logs_entries
+          description: |
+            Google Cloud Platform (GCP) provided audit logs entries that the agent
+            can use to perform tasks related to Google Cloud Platform.
+          update_method: append
+  - id: gcp_knowledge
+    name: GCP Knowledge
+    description: |
+      Knowledge about Google Cloud Platform (GCP) services, best practices, and common patterns.
+      This is a semantic memory that encodes general knowledge about GCP that the agent can use
+      to provide better assistance with GCP-related tasks.
+    category: know_how
+    type: semantic
+    schema:
+      corpus:
+        id: gcp_knowledge_corpus
