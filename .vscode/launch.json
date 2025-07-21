@@ -9,8 +9,13 @@
       "request": "launch",
       "name": "Launch CLI",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "start"],
-      "skipFiles": ["<node_internals>/**"],
+      "runtimeArgs": [
+        "run",
+        "start"
+      ],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "env": {
@@ -21,13 +26,19 @@
       "type": "node",
       "request": "launch",
       "name": "Launch E2E",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "test:e2e", "memory-extension"],
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/integration-tests/run-tests.js",
+      "args": [
+        "--verbose",
+        "--keep-output",
+        "memory-extension"
+      ],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
       "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
       "env": {
+        "GEMINI_SANDBOX": "false",
         "GEMINI_API_KEY": "${env:GEMINI_API_KEY}"
       }
     },
@@ -35,7 +46,9 @@
       "name": "Attach",
       "port": 9229,
       "request": "attach",
-      "skipFiles": ["<node_internals>/**"],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
       "type": "node",
       // fix source mapping when debugging in sandbox using global installation
       // note this does not interfere when remoteRoot is also ${workspaceFolder}/packages
@@ -46,9 +59,13 @@
       "type": "node",
       "request": "launch",
       "name": "Launch Program",
-      "skipFiles": ["<node_internals>/**"],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
       "program": "${file}",
-      "outFiles": ["${workspaceFolder}/**/*.js"]
+      "outFiles": [
+        "${workspaceFolder}/**/*.js"
+      ]
     },
     {
       "type": "node",
@@ -68,7 +85,9 @@
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"]
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
     },
     {
       "name": "Python: FastAPI",

@@ -42,6 +42,10 @@ describe('GeminiChat with PromptEnhancer', () => {
       getContentGeneratorConfig: vi
         .fn()
         .mockReturnValue({ authType: 'oauth-personal' }),
+      getUserTier: vi.fn().mockReturnValue('free'),
+      getCachedGoogleAccount: vi.fn().mockReturnValue('test-user@example.com'),
+      getEmbeddingModel: vi.fn().mockReturnValue('gemini-embedding-001'),
+      getQuotaErrorOccurred: vi.fn().mockReturnValue(false),
     } as unknown as Config;
 
     chat = new GeminiChat(mockConfig, mockContentGenerator);
@@ -57,7 +61,7 @@ describe('GeminiChat with PromptEnhancer', () => {
       response,
     );
 
-    await chat.sendMessage({ message: 'hello' });
+    await chat.sendMessage({ message: 'hello' }, 'test-prompt-id');
 
     const enhancer = mockConfig.getPromptEnhancers()[0];
     expect(enhancer.enhance).toHaveBeenCalled();
