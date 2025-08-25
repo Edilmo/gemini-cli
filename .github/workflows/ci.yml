@@ -5,10 +5,12 @@ on:
     branches:
       - 'main'
       - 'release'
+      - 'main-gca'
   pull_request:
     branches:
       - 'main'
       - 'release'
+      - 'main-gca'
   merge_group:
 
 concurrency:

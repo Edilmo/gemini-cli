@@ -42,7 +42,7 @@ import {
 import { shouldAttemptBrowserLaunch } from '../utils/browser.js';
 import { MCPOAuthConfig } from '../mcp/oauth-provider.js';
 import { IdeClient } from '../ide/ide-client.js';
-import type { Content } from '@google/genai';
+import type { Content, ContentUnion } from '@google/genai';
 import {
   FileSystemService,
   StandardFileSystemService,
@@ -65,6 +65,18 @@ export enum ApprovalMode {
 export interface AccessibilitySettings {
   disableLoadingPhrases?: boolean;
   screenReader?: boolean;
+}
+
+export interface PromptEnhancer {
+  name: string;
+  enhance(
+    userId: string,
+    systemInstruction: ContentUnion | undefined,
+    contents: Content[],
+  ): Promise<{
+    systemInstruction: ContentUnion | undefined;
+    contents: Content[];
+  }>;
 }
 
 export interface BugCommandSettings {
@@ -188,6 +200,7 @@ export interface ConfigParameters {
   bugCommand?: BugCommandSettings;
   model: string;
   extensionContextFilePaths?: string[];
+  promptEnhancers?: PromptEnhancer[];
   maxSessionTurns?: number;
   experimentalZedIntegration?: boolean;
   listExtensions?: boolean;
@@ -249,6 +262,7 @@ export class Config {
   private readonly bugCommand: BugCommandSettings | undefined;
   private readonly model: string;
   private readonly extensionContextFilePaths: string[];
+  private readonly promptEnhancers: PromptEnhancer[];
   private readonly noBrowser: boolean;
   private readonly folderTrustFeature: boolean;
   private readonly folderTrust: boolean;
@@ -329,6 +343,7 @@ export class Config {
     this.bugCommand = params.bugCommand;
     this.model = params.model;
     this.extensionContextFilePaths = params.extensionContextFilePaths ?? [];
+    this.promptEnhancers = params.promptEnhancers ?? [];
     this.maxSessionTurns = params.maxSessionTurns ?? -1;
     this.experimentalZedIntegration =
       params.experimentalZedIntegration ?? false;
@@ -668,6 +683,10 @@ export class Config {
 
   getExtensionContextFilePaths(): string[] {
     return this.extensionContextFilePaths;
+  }
+
+  getPromptEnhancers(): PromptEnhancer[] {
+    return this.promptEnhancers;
   }
 
   getExperimentalZedIntegration(): boolean {

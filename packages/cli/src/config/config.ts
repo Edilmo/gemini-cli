@@ -22,6 +22,7 @@ import {
   DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
   FileDiscoveryService,
   TelemetryTarget,
+  PromptEnhancer,
   FileFilteringOptions,
   ShellTool,
   EditTool,
@@ -475,6 +476,13 @@ export async function loadCliConfig(
   // The screen reader argument takes precedence over the accessibility setting.
   const screenReader =
     argv.screenReader ?? settings.accessibility?.screenReader ?? false;
+  const promptEnhancers = extensions
+    .filter(
+      (ext): ext is Extension & { promptEnhancer: PromptEnhancer } =>
+        ext.promptEnhancer !== undefined,
+    )
+    .map((ext) => ext.promptEnhancer);
+
   return new Config({
     sessionId,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
@@ -540,6 +548,7 @@ export async function loadCliConfig(
     bugCommand: settings.bugCommand,
     model: argv.model || settings.model || DEFAULT_GEMINI_MODEL,
     extensionContextFilePaths,
+    promptEnhancers,
     maxSessionTurns: settings.maxSessionTurns ?? -1,
     experimentalZedIntegration: argv.experimentalAcp || false,
     listExtensions: argv.listExtensions || false,

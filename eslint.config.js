@@ -38,6 +38,7 @@ export default tseslint.config(
       'bundle/**',
       'package/bundle/**',
       '.integration-tests/**',
+      'gca_extension/**',
     ],
   },
   eslint.configs.recommended,

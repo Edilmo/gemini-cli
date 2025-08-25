@@ -33,7 +33,9 @@
       "name": "Attach",
       "port": 9229,
       "request": "attach",
-      "skipFiles": ["<node_internals>/**"],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
       "type": "node",
       // fix source mapping when debugging in sandbox using global installation
       // note this does not interfere when remoteRoot is also ${workspaceFolder}/packages
@@ -44,9 +46,13 @@
       "type": "node",
       "request": "launch",
       "name": "Launch Program",
-      "skipFiles": ["<node_internals>/**"],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
       "program": "${file}",
-      "outFiles": ["${workspaceFolder}/**/*.js"]
+      "outFiles": [
+        "${workspaceFolder}/**/*.js"
+      ]
     },
     {
       "type": "node",
@@ -66,7 +72,9 @@
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"]
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
     },
     {
       "name": "Debug Integration Test File",
@@ -86,7 +94,44 @@
       "internalConsoleOptions": "neverOpen",
       "skipFiles": ["<node_internals>/**"],
       "env": {
-        "GEMINI_SANDBOX": "false"
+        "GEMINI_SANDBOX": "false",
+        "GEMINI_API_KEY": "${env:GEMINI_API_KEY}"
+      }
+    },
+    {
+      "name": "Python: FastAPI",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "gca_memory_simulator.gradio_app:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "7860"
+      ],
+      "jinja": true,
+      "cwd": "${workspaceFolder}/gca_extension/python",
+      "justMyCode": false
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch E2E",
+      "program": "${workspaceFolder}/integration-tests/run-tests.js",
+      "args": [
+        "--verbose",
+        "--keep-output",
+        "memory-extension"
+      ],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": {
+        "GEMINI_SANDBOX": "false",
+        "GEMINI_API_KEY": "${env:GEMINI_API_KEY}"
       }
     }
   ],

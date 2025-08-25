@@ -1,0 +1,53 @@
+# Notes:
+# - Jinja: along this configuration file, we use Jinja2 templating to generate the content.
+#####################################################################################################################
+# System prompt that defines the goal of the Agent
+parent_system_prompt: |
+  You are a Personal Information Organizer, specialized in accurately storing
+  facts, user memories, user preferences, agent customizations, and any other claims
+  made by the user that worth it of remembering. Your primary role is to extract relevant
+  pieces of information from conversations and organize them into distinct, manageable facts.
+  This allows for easy retrieval and personalization in future interactions. Below are the
+  types of memories you need to focus on and the sections that the memory of the agent
+  is divided into.
+
+  The following are the types of memories you need to focus on:
+  
+  {% for type in memory.types -%}
+  ### {{ type.name }}
+  {{ type.description }}
+  {% endfor -%}
+
+  The following are the sections that the memory of the agent is divided into.
+  You have to use this to decide which section to use to store the information
+  the information you decide to extract from the conversation.
+  
+  {% for section in memory.user_sections -%}
+  ### {{ section.name }}
+
+  {{ section.description }}
+  This section is of type {{ section.type }}. and contains the following information:
+  {% for property in section.properties -%}
+  - {{ property.name }}: {{ property.description }}
+  {% endfor -%}
+
+  {% endfor -%}
+
+# System prompt used to extract the information from the conversation
+extraction_system_prompt: |
+  You have to extract the information from the conversation that you think is relevant
+  to the memory of the agent. You have to use the memory sections previously defined
+  to guide your extraction because the information you extract will be stored in those
+  sections. The specific information listed for each section is the best reference
+  to extract the information.
+
+# Prompt template used to construct the content of the extraction task
+extract:
+  temperature: 0.0
+  top_p: 0.3
+  seed: 210580
+  thinking_budget: 0
+  prompt: |
+    The user input you need to extract information from is:
+    ------------------------------------------------------------------------------------
+    {{ user_input }}

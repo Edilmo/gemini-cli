@@ -15,12 +15,14 @@ import {
   createUserContent,
   Part,
   Tool,
+  ContentUnion,
 } from '@google/genai';
 import { retryWithBackoff } from '../utils/retry.js';
 import { isFunctionResponse } from '../utils/messageInspectors.js';
 import { ContentGenerator, AuthType } from './contentGenerator.js';
 import { Config } from '../config/config.js';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
+import { getCachedGoogleAccount } from '../utils/user_account.js';
 import { hasCycleInSchema } from '../tools/tools.js';
 import { StructuredError } from './turn.js';
 import {
@@ -230,9 +232,36 @@ export class GeminiChat {
     prompt_id: string,
   ): Promise<GenerateContentResponse> {
     await this.sendPromise;
-    const userContent = createUserContent(params.message);
-    const requestContents = this.getHistory(true).concat(userContent);
+    let userContent = createUserContent(params.message);
+    let requestContents = this.getHistory(true).concat(userContent);
+    const generationConfig = { ...this.generationConfig, ...params.config };
 
+    const enhancers = this.config.getPromptEnhancers();
+    if (enhancers.length > 0) {
+      // Pass the initial system instruction to the first enhancer.
+      let systemInstruction: ContentUnion | undefined =
+        generationConfig.systemInstruction;
+      // Use Google Account email if available, otherwise fall back to session ID
+      const googleAccountEmail = getCachedGoogleAccount();
+      const userId = googleAccountEmail || this.config.getSessionId();
+      for (const enhancer of enhancers) {
+        const result = await enhancer.enhance(
+          userId,
+          systemInstruction,
+          requestContents,
+        );
+        systemInstruction = result.systemInstruction;
+        requestContents = result.contents;
+      }
+      // Re-assign the (potentially) modified system instruction.
+      generationConfig.systemInstruction = systemInstruction;
+      // a bit of a hack, but the enhancer might have modified the user content
+      userContent = requestContents[requestContents.length - 1];
+    }
+
+    this._logApiRequest(requestContents, this.config.getModel(), prompt_id);
+
+    const startTime = Date.now();
     let response: GenerateContentResponse;
 
     try {
@@ -253,7 +282,7 @@ export class GeminiChat {
           {
             model: modelToUse,
             contents: requestContents,
-            config: { ...this.generationConfig, ...params.config },
+            config: generationConfig,
           },
           prompt_id,
         );
@@ -339,11 +368,36 @@ export class GeminiChat {
     });
     this.sendPromise = streamDonePromise;
 
-    const userContent = createUserContent(params.message);
+    let userContent = createUserContent(params.message);
 
     // Add user content to history ONCE before any attempts.
     this.history.push(userContent);
-    const requestContents = this.getHistory(true);
+    let requestContents = this.getHistory(true);
+
+    const generationConfig = { ...this.generationConfig, ...params.config };
+
+    const enhancers = this.config.getPromptEnhancers();
+    if (enhancers.length > 0) {
+      // Pass the initial system instruction to the first enhancer.
+      let systemInstruction: ContentUnion | undefined =
+        generationConfig.systemInstruction;
+      // Use Google Account email if available, otherwise fall back to session ID
+      const googleAccountEmail = getCachedGoogleAccount();
+      const userId = googleAccountEmail || this.config.getSessionId();
+      for (const enhancer of enhancers) {
+        const result = await enhancer.enhance(
+          userId,
+          systemInstruction,
+          requestContents,
+        );
+        systemInstruction = result.systemInstruction;
+        requestContents = result.contents;
+      }
+      // Re-assign the (potentially) modified system instruction.
+      generationConfig.systemInstruction = systemInstruction;
+      // a bit of a hack, but the enhancer might have modified the user content
+      userContent = requestContents[requestContents.length - 1];
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
@@ -413,6 +467,7 @@ export class GeminiChat {
     params: SendMessageParameters,
     prompt_id: string,
     userContent: Content,
+    generationConfig: GenerateContentConfig,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
     const apiCall = () => {
       const modelToUse = this.config.getModel();
@@ -430,7 +485,7 @@ export class GeminiChat {
         {
           model: modelToUse,
           contents: requestContents,
-          config: { ...this.generationConfig, ...params.config },
+          config: generationConfig,
         },
         prompt_id,
       );

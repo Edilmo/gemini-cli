@@ -8,10 +8,14 @@ import {
   MCPServerConfig,
   GeminiCLIExtension,
   Storage,
+  PromptEnhancer,
 } from '@google/gemini-cli-core';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { pathToFileURL } from 'url';
+// Alias to avoid conflicts with the banner that esbuild injects
+import { createRequire as createRequireForExt } from 'module';
 
 export const EXTENSIONS_CONFIG_FILENAME = 'gemini-extension.json';
 
@@ -19,6 +23,7 @@ export interface Extension {
   path: string;
   config: ExtensionConfig;
   contextFiles: string[];
+  promptEnhancer?: PromptEnhancer;
 }
 
 export interface ExtensionConfig {
@@ -27,12 +32,17 @@ export interface ExtensionConfig {
   mcpServers?: Record<string, MCPServerConfig>;
   contextFileName?: string | string[];
   excludeTools?: string[];
+  promptEnhancerPath?: string;
 }
 
-export function loadExtensions(workspaceDir: string): Extension[] {
+const require = createRequireForExt(import.meta.url); // initialize once
+
+export async function loadExtensions(
+  workspaceDir: string,
+): Promise<Extension[]> {
   const allExtensions = [
-    ...loadExtensionsFromDir(workspaceDir),
-    ...loadExtensionsFromDir(os.homedir()),
+    ...(await loadExtensionsFromDir(workspaceDir)),
+    ...(await loadExtensionsFromDir(os.homedir())),
   ];
 
   const uniqueExtensions = new Map<string, Extension>();
@@ -45,7 +55,7 @@ export function loadExtensions(workspaceDir: string): Extension[] {
   return Array.from(uniqueExtensions.values());
 }
 
-function loadExtensionsFromDir(dir: string): Extension[] {
+async function loadExtensionsFromDir(dir: string): Promise<Extension[]> {
   const storage = new Storage(dir);
   const extensionsDir = storage.getExtensionsDir();
   if (!fs.existsSync(extensionsDir)) {
@@ -56,7 +66,7 @@ function loadExtensionsFromDir(dir: string): Extension[] {
   for (const subdir of fs.readdirSync(extensionsDir)) {
     const extensionDir = path.join(extensionsDir, subdir);
 
-    const extension = loadExtension(extensionDir);
+    const extension = await loadExtension(extensionDir);
     if (extension != null) {
       extensions.push(extension);
     }
@@ -64,7 +74,7 @@ function loadExtensionsFromDir(dir: string): Extension[] {
   return extensions;
 }
 
-function loadExtension(extensionDir: string): Extension | null {
+async function loadExtension(extensionDir: string): Promise<Extension | null> {
   if (!fs.statSync(extensionDir).isDirectory()) {
     console.error(
       `Warning: unexpected file ${extensionDir} in extensions directory.`,
@@ -99,6 +109,43 @@ function loadExtension(extensionDir: string): Extension | null {
       config,
       contextFiles,
     };
+
+    if (config.promptEnhancerPath) {
+      const modifierPath = path.join(extensionDir, config.promptEnhancerPath);
+      if (fs.existsSync(modifierPath)) {
+        // 1. resolve any symlinks (/var -> /private/var on macOS)
+        const realPath = fs.realpathSync(modifierPath);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let mod: any;
+        if (process.env.VITEST) {
+          // ⬅️  Bypass Vite: load with CJS require
+          // eslint-disable-next-line no-restricted-syntax
+          mod = require(realPath);
+        } else {
+          // normal runtime – native ESM import
+          mod = await import(/* @vite-ignore */ pathToFileURL(realPath).href);
+        }
+
+        if (
+          typeof mod.default === 'object' &&
+          mod.default.enhance &&
+          mod.default.name
+        ) {
+          extension.promptEnhancer = mod.default;
+        } else {
+          console.error(
+            `Warning: prompt enhancer ${modifierPath} does not have a default export that follows the PromptEnhancer interface. Here's the object: ${JSON.stringify(mod.default)}`,
+          );
+        }
+      } else {
+        console.error(
+          `Warning: prompt enhancer file not found at ${modifierPath}.`,
+        );
+      }
+    }
+
+    return extension;
   } catch (e) {
     console.error(
       `Warning: error parsing extension config in ${configFilePath}: ${e}`,

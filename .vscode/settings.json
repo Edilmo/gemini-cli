@@ -12,5 +12,8 @@
   },
   "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
+  },
+  "python.analysis.stubPath": "gca_extension/python/typestubs",
+  "python.defaultInterpreterPath": "gca_extension/python/.venv/bin/python",
+  "python.analysis.extraPaths": ["gca_extension/python/src"]
 }
