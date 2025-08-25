@@ -7,6 +7,7 @@
 import {
   MCPServerConfig,
   GeminiCLIExtension,
+  Storage,
   PromptEnhancer,
 } from '@google/gemini-cli-core';
 import * as fs from 'fs';
@@ -16,10 +17,10 @@ import { pathToFileURL } from 'url';
 // Alias to avoid conflicts with the banner that esbuild injects
 import { createRequire as createRequireForExt } from 'module';
 
-export const EXTENSIONS_DIRECTORY_NAME = path.join('.gemini', 'extensions');
 export const EXTENSIONS_CONFIG_FILENAME = 'gemini-extension.json';
 
 export interface Extension {
+  path: string;
   config: ExtensionConfig;
   contextFiles: string[];
   promptEnhancer?: PromptEnhancer;
@@ -55,7 +56,8 @@ export async function loadExtensions(
 }
 
 async function loadExtensionsFromDir(dir: string): Promise<Extension[]> {
-  const extensionsDir = path.join(dir, EXTENSIONS_DIRECTORY_NAME);
+  const storage = new Storage(dir);
+  const extensionsDir = storage.getExtensionsDir();
   if (!fs.existsSync(extensionsDir)) {
     return [];
   }
@@ -102,7 +104,8 @@ async function loadExtension(extensionDir: string): Promise<Extension | null> {
       .map((contextFileName) => path.join(extensionDir, contextFileName))
       .filter((contextFilePath) => fs.existsSync(contextFilePath));
 
-    const extension: Extension = {
+    return {
+      path: extensionDir,
       config,
       contextFiles,
     };
@@ -171,6 +174,7 @@ export function annotateActiveExtensions(
       name: extension.config.name,
       version: extension.config.version,
       isActive: true,
+      path: extension.path,
     }));
   }
 
@@ -186,6 +190,7 @@ export function annotateActiveExtensions(
       name: extension.config.name,
       version: extension.config.version,
       isActive: false,
+      path: extension.path,
     }));
   }
 
@@ -203,6 +208,7 @@ export function annotateActiveExtensions(
       name: extension.config.name,
       version: extension.config.version,
       isActive,
+      path: extension.path,
     });
   }
 

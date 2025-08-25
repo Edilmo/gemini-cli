@@ -7,15 +7,10 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Launch CLI",
+      "name": "Build & Launch CLI",
       "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "start"
-      ],
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
+      "runtimeArgs": ["run", "build-and-start"],
+      "skipFiles": ["<node_internals>/**"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "env": {
@@ -23,24 +18,16 @@
       }
     },
     {
-      "type": "node",
+      "name": "Launch Companion VS Code Extension",
+      "type": "extensionHost",
       "request": "launch",
-      "name": "Launch E2E",
-      "program": "${workspaceFolder}/integration-tests/run-tests.js",
       "args": [
-        "--verbose",
-        "--keep-output",
-        "memory-extension"
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/vscode-ide-companion"
       ],
-      "skipFiles": [
-        "<node_internals>/**"
+      "outFiles": [
+        "${workspaceFolder}/packages/vscode-ide-companion/dist/**/*.js"
       ],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "env": {
-        "GEMINI_SANDBOX": "false",
-        "GEMINI_API_KEY": "${env:GEMINI_API_KEY}"
-      }
+      "preLaunchTask": "npm: build: vscode-ide-companion"
     },
     {
       "name": "Attach",
@@ -90,6 +77,28 @@
       ]
     },
     {
+      "name": "Debug Integration Test File",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vitest",
+        "run",
+        "--root",
+        "./integration-tests",
+        "--inspect-brk=9229",
+        "${file}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "GEMINI_SANDBOX": "false",
+        "GEMINI_API_KEY": "${env:GEMINI_API_KEY}"
+      }
+    },
+    {
       "name": "Python: FastAPI",
       "type": "debugpy",
       "request": "launch",
@@ -104,6 +113,26 @@
       "jinja": true,
       "cwd": "${workspaceFolder}/gca_extension/python",
       "justMyCode": false
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch E2E",
+      "program": "${workspaceFolder}/integration-tests/run-tests.js",
+      "args": [
+        "--verbose",
+        "--keep-output",
+        "memory-extension"
+      ],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": {
+        "GEMINI_SANDBOX": "false",
+        "GEMINI_API_KEY": "${env:GEMINI_API_KEY}"
+      }
     }
   ],
   "inputs": [

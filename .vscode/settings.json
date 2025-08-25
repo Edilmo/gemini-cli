@@ -1,5 +1,18 @@
 {
   "typescript.tsserver.experimental.enableProjectDiagnostics": true,
+  "editor.tabSize": 2,
+  "editor.rulers": [80],
+  "editor.detectIndentation": false,
+  "editor.insertSpaces": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
   "python.analysis.stubPath": "gca_extension/python/typestubs",
   "python.defaultInterpreterPath": "gca_extension/python/.venv/bin/python",
   "python.analysis.extraPaths": ["gca_extension/python/src"]
