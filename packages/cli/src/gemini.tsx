@@ -188,8 +188,8 @@ export async function main() {
     process.exit(1);
   }
 
-  const argv = await parseArguments();
-  const extensions = await loadExtensions(workspaceRoot);
+  const argv = await parseArguments(settings.merged);
+  const extensions = loadExtensions(workspaceRoot);
   const config = await loadCliConfig(
     settings.merged,
     extensions,

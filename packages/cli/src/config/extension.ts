@@ -16,13 +16,18 @@ import * as os from 'os';
 import { pathToFileURL } from 'url';
 // Alias to avoid conflicts with the banner that esbuild injects
 import { createRequire as createRequireForExt } from 'module';
+import { simpleGit } from 'simple-git';
+
+export const EXTENSIONS_DIRECTORY_NAME = '.gemini/extensions';
 
 export const EXTENSIONS_CONFIG_FILENAME = 'gemini-extension.json';
+export const INSTALL_METADATA_FILENAME = '.gemini-extension-install.json';
 
 export interface Extension {
   path: string;
   config: ExtensionConfig;
   contextFiles: string[];
+  installMetadata?: ExtensionInstallMetadata | undefined;
   promptEnhancer?: PromptEnhancer;
 }
 
@@ -36,6 +41,45 @@ export interface ExtensionConfig {
 }
 
 const require = createRequireForExt(import.meta.url); // initialize once
+
+export interface ExtensionInstallMetadata {
+  source: string;
+  type: 'git' | 'local';
+}
+
+export class ExtensionStorage {
+  private readonly extensionName: string;
+
+  constructor(extensionName: string) {
+    this.extensionName = extensionName;
+  }
+
+  getExtensionDir(): string {
+    return path.join(
+      ExtensionStorage.getUserExtensionsDir(),
+      this.extensionName,
+    );
+  }
+
+  getConfigPath(): string {
+    return path.join(this.getExtensionDir(), EXTENSIONS_CONFIG_FILENAME);
+  }
+
+  static getSettingsPath(): string {
+    return process.cwd();
+  }
+
+  static getUserExtensionsDir(): string {
+    const storage = new Storage(os.homedir());
+    return storage.getExtensionsDir();
+  }
+
+  static async createTmpDir(): Promise<string> {
+    return await fs.promises.mkdtemp(
+      path.join(os.tmpdir(), 'gemini-extension'),
+    );
+  }
+}
 
 export async function loadExtensions(
   workspaceDir: string,
@@ -55,7 +99,20 @@ export async function loadExtensions(
   return Array.from(uniqueExtensions.values());
 }
 
-async function loadExtensionsFromDir(dir: string): Promise<Extension[]> {
+export function loadUserExtensions(): Extension[] {
+  const userExtensions = loadExtensionsFromDir(os.homedir());
+
+  const uniqueExtensions = new Map<string, Extension>();
+  for (const extension of userExtensions) {
+    if (!uniqueExtensions.has(extension.config.name)) {
+      uniqueExtensions.set(extension.config.name, extension);
+    }
+  }
+
+  return Array.from(uniqueExtensions.values());
+}
+
+export function loadExtensionsFromDir(dir: string): Extension[] {
   const storage = new Storage(dir);
   const extensionsDir = storage.getExtensionsDir();
   if (!fs.existsSync(extensionsDir)) {
@@ -74,7 +131,7 @@ async function loadExtensionsFromDir(dir: string): Promise<Extension[]> {
   return extensions;
 }
 
-async function loadExtension(extensionDir: string): Promise<Extension | null> {
+export function loadExtension(extensionDir: string): Extension | null {
   if (!fs.statSync(extensionDir).isDirectory()) {
     console.error(
       `Warning: unexpected file ${extensionDir} in extensions directory.`,
@@ -104,10 +161,11 @@ async function loadExtension(extensionDir: string): Promise<Extension | null> {
       .map((contextFileName) => path.join(extensionDir, contextFileName))
       .filter((contextFilePath) => fs.existsSync(contextFilePath));
 
-    return {
+    const extension: Extension = {
       path: extensionDir,
       config,
       contextFiles,
+      installMetadata: loadInstallMetadata(extensionDir),
     };
 
     if (config.promptEnhancerPath) {
@@ -151,6 +209,19 @@ async function loadExtension(extensionDir: string): Promise<Extension | null> {
       `Warning: error parsing extension config in ${configFilePath}: ${e}`,
     );
     return null;
+  }
+}
+
+function loadInstallMetadata(
+  extensionDir: string,
+): ExtensionInstallMetadata | undefined {
+  const metadataFilePath = path.join(extensionDir, INSTALL_METADATA_FILENAME);
+  try {
+    const configContent = fs.readFileSync(metadataFilePath, 'utf-8');
+    const metadata = JSON.parse(configContent) as ExtensionInstallMetadata;
+    return metadata;
+  } catch (_e) {
+    return undefined;
   }
 }
 
@@ -217,4 +288,100 @@ export function annotateActiveExtensions(
   }
 
   return annotatedExtensions;
+}
+
+/**
+ * Clones a Git repository to a specified local path.
+ * @param gitUrl The Git URL to clone.
+ * @param destination The destination path to clone the repository to.
+ */
+async function cloneFromGit(
+  gitUrl: string,
+  destination: string,
+): Promise<void> {
+  try {
+    // TODO(chrstnb): Download the archive instead to avoid unnecessary .git info.
+    await simpleGit().clone(gitUrl, destination, ['--depth', '1']);
+  } catch (error) {
+    throw new Error(`Failed to clone Git repository from ${gitUrl}`, {
+      cause: error,
+    });
+  }
+}
+
+/**
+ * Copies an extension from a source to a destination path.
+ * @param source The source path of the extension.
+ * @param destination The destination path to copy the extension to.
+ */
+async function copyExtension(
+  source: string,
+  destination: string,
+): Promise<void> {
+  await fs.promises.cp(source, destination, { recursive: true });
+}
+
+export async function installExtension(
+  installMetadata: ExtensionInstallMetadata,
+): Promise<string> {
+  const extensionsDir = ExtensionStorage.getUserExtensionsDir();
+  await fs.promises.mkdir(extensionsDir, { recursive: true });
+
+  // Convert relative paths to absolute paths for the metadata file.
+  if (
+    installMetadata.type === 'local' &&
+    !path.isAbsolute(installMetadata.source)
+  ) {
+    installMetadata.source = path.resolve(
+      process.cwd(),
+      installMetadata.source,
+    );
+  }
+
+  let localSourcePath: string;
+  let tempDir: string | undefined;
+  if (installMetadata.type === 'git') {
+    tempDir = await ExtensionStorage.createTmpDir();
+    await cloneFromGit(installMetadata.source, tempDir);
+    localSourcePath = tempDir;
+  } else {
+    localSourcePath = installMetadata.source;
+  }
+  let newExtensionName: string | undefined;
+  try {
+    const newExtension = loadExtension(localSourcePath);
+    if (!newExtension) {
+      throw new Error(
+        `Invalid extension at ${installMetadata.source}. Please make sure it has a valid gemini-extension.json file.`,
+      );
+    }
+
+    // ~/.gemini/extensions/{ExtensionConfig.name}.
+    newExtensionName = newExtension.config.name;
+    const extensionStorage = new ExtensionStorage(newExtensionName);
+    const destinationPath = extensionStorage.getExtensionDir();
+
+    const installedExtensions = loadUserExtensions();
+    if (
+      installedExtensions.some(
+        (installed) => installed.config.name === newExtensionName,
+      )
+    ) {
+      throw new Error(
+        `Error: Extension "${newExtensionName}" is already installed. Please uninstall it first.`,
+      );
+    }
+
+    await copyExtension(localSourcePath, destinationPath);
+
+    const metadataString = JSON.stringify(installMetadata, null, 2);
+    const metadataPath = path.join(destinationPath, INSTALL_METADATA_FILENAME);
+    await fs.promises.writeFile(metadataPath, metadataString);
+  } finally {
+    if (tempDir) {
+      await fs.promises.rm(tempDir, { recursive: true, force: true });
+    }
+  }
+
+  return newExtensionName;
 }
