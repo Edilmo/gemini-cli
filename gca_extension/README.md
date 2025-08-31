@@ -2,6 +2,27 @@
 
 This directory contains the Google Cloud Assist Memory Extension for the Gemini CLI, which provides memory-enhanced conversation capabilities using Google Cloud APIs.
 
+## New Requirements not met with current implementation:
+
+- FR: https://github.com/google-gemini/gemini-cli/issues/2779
+- Taylor’s vision related to extensions TaylorGeminiCLIVision_3Month: Vision: The "VSCode of Terminals".... We will deliver a system where extensions can transform Gemini CLI's core "persona," allowing it to become a specialized tool for any vertical (i.e. data scientist, SRE, designer, …). This will be enabled by a robust CLI extension workflow (publish, install, config) that empowers a vibrant community to create, share, and manage these extensions, with the first community marketplaces beginning to emerge.
+- Be extension first: details can be seen in this Epic.
+- Provide easy (or direct) migration paths from Claude Code.
+- Frame the contribution as Hooks support in the extension system.
+- Facilitate Claude Code hooks migration to GeminiCLI.
+  * Claude Code Repo bash_command_validator_example.py
+  * Hook Output Reference
+- Create an issue hierarchy in the OSS GeminiCLI public roadmap (just like the link above) that reflects everything above.
+- Change our implementation accordingly.
+- Split the implementation in reviewable small PRs.
+- Goes through OSS PR process for each of the PRs.
+- Ensure alignment with ADK Callback system
+- Hooks to consider:
+  * all on Claude code
+  * One before calling the LLM -> memory
+  * One before constructing the list of tools -> tool optimizer
+
+
 ## Files Overview
 
 ### Core Files
