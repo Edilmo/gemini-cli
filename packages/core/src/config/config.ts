@@ -211,6 +211,50 @@ export interface SandboxConfig {
   image: string;
 }
 
+/**
+ * Event names for the hook system
+ */
+export enum HookEventName {
+  BeforeTool = 'BeforeTool',
+  AfterTool = 'AfterTool',
+  BeforeAgent = 'BeforeAgent',
+  Notification = 'Notification',
+  AfterAgent = 'AfterAgent',
+  SessionStart = 'SessionStart',
+  SessionEnd = 'SessionEnd',
+  PreCompress = 'PreCompress',
+  BeforeModel = 'BeforeModel',
+  AfterModel = 'AfterModel',
+  BeforeToolSelection = 'BeforeToolSelection',
+}
+
+/**
+ * Hook configuration entry
+ */
+export interface CommandHookConfig {
+  type: HookType.Command;
+  command: string;
+  timeout?: number;
+}
+
+export type HookConfig = CommandHookConfig;
+
+/**
+ * Hook definition with matcher
+ */
+export interface HookDefinition {
+  matcher?: string;
+  sequential?: boolean;
+  hooks: HookConfig[];
+}
+
+/**
+ * Hook implementation types
+ */
+export enum HookType {
+  Command = 'command',
+}
+
 export interface ConfigParameters {
   sessionId: string;
   embeddingModel?: string;
