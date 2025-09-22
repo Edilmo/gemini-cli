@@ -73,6 +73,7 @@ import type { EventEmitter } from 'node:events';
 import { MessageBus } from '../confirmation-bus/message-bus.js';
 import { PolicyEngine } from '../policy/policy-engine.js';
 import type { PolicyEngineConfig } from '../policy/types.js';
+import { HookSystem } from '../hooks/index.js';
 import type { UserTierId } from '../code_assist/types.js';
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
 
@@ -127,7 +128,6 @@ export interface ExtensionInstallMetadata {
   type: 'git' | 'local' | 'link' | 'github-release';
   ref?: string;
   autoUpdate?: boolean;
-  hooks?: { [K in HookEventName]?: HookDefinition[] };
 }
 
 export interface FileFilteringOptions {
@@ -392,6 +392,7 @@ export class Config {
   private readonly hooks:
     | { [K in HookEventName]?: HookDefinition[] }
     | undefined;
+  private hookSystem?: HookSystem;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -522,6 +523,10 @@ export class Config {
     }
     this.promptRegistry = new PromptRegistry();
     this.toolRegistry = await this.createToolRegistry();
+
+    // Initialize hook system
+    this.hookSystem = new HookSystem(this);
+    await this.hookSystem.initialize();
 
     await this.geminiClient.initialize();
   }
@@ -1115,6 +1120,13 @@ export class Config {
 
     await registry.discoverAllTools();
     return registry;
+  }
+
+  /**
+   * Get the hook system instance
+   */
+  getHookSystem(): HookSystem | undefined {
+    return this.hookSystem;
   }
 
   /**
