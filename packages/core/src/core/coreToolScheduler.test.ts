@@ -29,7 +29,9 @@ import {
   ToolConfirmationOutcome,
   Kind,
   ApprovalMode,
+  HookSystem,
 } from '../index.js';
+import { createMockMessageBus } from '../test-utils/mock-message-bus.js';
 import type { Part, PartListUnion } from '@google/genai';
 import {
   MockModifiableTool,
@@ -350,6 +352,7 @@ describe('CoreToolScheduler', () => {
       getEnableMessageBusIntegration: () => false,
       getMessageBus: () => null,
       getPolicyEngine: () => null,
+      getHookSystem: () => undefined,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -476,6 +479,7 @@ describe('CoreToolScheduler', () => {
       getEnableMessageBusIntegration: () => false,
       getMessageBus: () => null,
       getPolicyEngine: () => null,
+      getHookSystem: () => undefined,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -720,6 +724,12 @@ describe('CoreToolScheduler with payload', () => {
       getMessageBus: () => null,
       getPolicyEngine: () => null,
     } as unknown as Config;
+    const mockMessageBus = createMockMessageBus();
+    mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+    mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+    mockConfig.getHookSystem = vi
+      .fn()
+      .mockReturnValue(new HookSystem(mockConfig));
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,
@@ -1043,6 +1053,12 @@ describe('CoreToolScheduler edit cancellation', () => {
       getMessageBus: () => null,
       getPolicyEngine: () => null,
     } as unknown as Config;
+    const mockMessageBus = createMockMessageBus();
+    mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+    mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+    mockConfig.getHookSystem = vi
+      .fn()
+      .mockReturnValue(new HookSystem(mockConfig));
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,
@@ -1152,6 +1168,12 @@ describe('CoreToolScheduler YOLO mode', () => {
       getMessageBus: () => null,
       getPolicyEngine: () => null,
     } as unknown as Config;
+    const mockMessageBus = createMockMessageBus();
+    mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+    mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+    mockConfig.getHookSystem = vi
+      .fn()
+      .mockReturnValue(new HookSystem(mockConfig));
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,
@@ -1262,6 +1284,12 @@ describe('CoreToolScheduler request queueing', () => {
       getMessageBus: () => null,
       getPolicyEngine: () => null,
     } as unknown as Config;
+    const mockMessageBus = createMockMessageBus();
+    mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+    mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+    mockConfig.getHookSystem = vi
+      .fn()
+      .mockReturnValue(new HookSystem(mockConfig));
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,
@@ -1397,6 +1425,12 @@ describe('CoreToolScheduler request queueing', () => {
       getMessageBus: () => null,
       getPolicyEngine: () => null,
     } as unknown as Config;
+    const mockMessageBus = createMockMessageBus();
+    mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+    mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+    mockConfig.getHookSystem = vi
+      .fn()
+      .mockReturnValue(new HookSystem(mockConfig));
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,
@@ -1525,6 +1559,7 @@ describe('CoreToolScheduler request queueing', () => {
       getEnableMessageBusIntegration: () => false,
       getMessageBus: () => null,
       getPolicyEngine: () => null,
+      getHookSystem: () => undefined,
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -1606,6 +1641,12 @@ describe('CoreToolScheduler request queueing', () => {
       getMessageBus: () => null,
       getPolicyEngine: () => null,
     } as unknown as Config;
+    const mockMessageBus = createMockMessageBus();
+    mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+    mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+    mockConfig.getHookSystem = vi
+      .fn()
+      .mockReturnValue(new HookSystem(mockConfig));
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,
@@ -1681,6 +1722,12 @@ describe('CoreToolScheduler request queueing', () => {
       getMessageBus: () => null,
       getPolicyEngine: () => null,
     } as unknown as Config;
+    const mockMessageBus = createMockMessageBus();
+    mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+    mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+    mockConfig.getHookSystem = vi
+      .fn()
+      .mockReturnValue(new HookSystem(mockConfig));
 
     const testTool = new TestApprovalTool(mockConfig);
     const toolRegistry = {
@@ -1873,8 +1920,13 @@ describe('CoreToolScheduler Sequential Execution', () => {
       getUseModelRouter: () => false,
       getGeminiClient: () => null,
       getEnableMessageBusIntegration: () => false,
-      getMessageBus: () => null,
     } as unknown as Config;
+    const mockMessageBus = createMockMessageBus();
+    mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+    mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+    mockConfig.getHookSystem = vi
+      .fn()
+      .mockReturnValue(new HookSystem(mockConfig));
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,
@@ -1995,8 +2047,13 @@ describe('CoreToolScheduler Sequential Execution', () => {
       getUseModelRouter: () => false,
       getGeminiClient: () => null,
       getEnableMessageBusIntegration: () => false,
-      getMessageBus: () => null,
     } as unknown as Config;
+    const mockMessageBus = createMockMessageBus();
+    mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+    mockConfig.getEnableHooks = vi.fn().mockReturnValue(false);
+    mockConfig.getHookSystem = vi
+      .fn()
+      .mockReturnValue(new HookSystem(mockConfig));
 
     const scheduler = new CoreToolScheduler({
       config: mockConfig,

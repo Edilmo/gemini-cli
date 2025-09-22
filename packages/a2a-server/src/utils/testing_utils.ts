@@ -14,7 +14,9 @@ import {
   DEFAULT_TRUNCATE_TOOL_OUTPUT_LINES,
   DEFAULT_TRUNCATE_TOOL_OUTPUT_THRESHOLD,
   GeminiClient,
+  HookSystem,
 } from '@google/gemini-cli-core';
+import { createMockMessageBus } from '@google/gemini-cli-core/src/test-utils/mock-message-bus.js';
 import type { Config, Storage } from '@google/gemini-cli-core';
 import { expect, vi } from 'vitest';
 
@@ -56,6 +58,10 @@ export function createMockConfig(
     getEnableExtensionReloading: vi.fn().mockReturnValue(false),
     ...overrides,
   } as unknown as Config;
+  mockConfig.getMessageBus = vi.fn().mockReturnValue(createMockMessageBus());
+  mockConfig.getHookSystem = vi
+    .fn()
+    .mockReturnValue(new HookSystem(mockConfig));
 
   mockConfig.getGeminiClient = vi
     .fn()
