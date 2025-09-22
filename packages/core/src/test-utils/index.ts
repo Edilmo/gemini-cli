@@ -5,3 +5,5 @@
  */
 
 export * from './mock-tool.js';
+// Note: mock-message-bus is not exported here to avoid bundling vitest in production builds
+// Import it directly from './mock-message-bus.js' in test files instead

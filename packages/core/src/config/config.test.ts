@@ -18,8 +18,11 @@ import {
   HookType,
   HookEventName,
 } from './config.js';
-import type { HookDefinition } from '../hooks/types.js';
-import { HookType, HookEventName } from '../hooks/types.js';
+import {
+  type HookDefinition,
+  HookEventName,
+  HookType,
+} from '../hooks/types.js';
 import * as path from 'node:path';
 import { setGeminiMdFilename as mockSetGeminiMdFilename } from '../tools/memoryTool.js';
 import {
