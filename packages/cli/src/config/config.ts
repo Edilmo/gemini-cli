@@ -674,6 +674,7 @@ export async function loadCliConfig(
     useModelRouter,
     enableMessageBusIntegration:
       settings.tools?.enableMessageBusIntegration ?? false,
+    hooks: settings.hooks || {},
   });
 }
 
