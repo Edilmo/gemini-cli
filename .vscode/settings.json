@@ -15,5 +15,11 @@
   },
   "python.analysis.stubPath": "gca_extension/python/typestubs",
   "python.defaultInterpreterPath": "gca_extension/python/.venv/bin/python",
-  "python.analysis.extraPaths": ["gca_extension/python/src"]
+  "python.analysis.extraPaths": [
+    "gca_extension/python/src"
+  ],
+  "cursorpyright.analysis.extraPaths": [
+    "gca_extension/python/src"
+  ],
+  "cursorpyright.analysis.stubPath": "gca_extension/python/typestubs"
 }
