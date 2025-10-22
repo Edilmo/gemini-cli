@@ -75,6 +75,7 @@ import type { EventEmitter } from 'node:events';
 import { MessageBus } from '../confirmation-bus/message-bus.js';
 import { PolicyEngine } from '../policy/policy-engine.js';
 import type { PolicyEngineConfig } from '../policy/types.js';
+import { HookSystem } from '../hooks/index.js';
 import type { UserTierId } from '../code_assist/types.js';
 import { AgentRegistry } from '../agents/registry.js';
 import { setGlobalProxy } from '../utils/fetch.js';
@@ -141,6 +142,7 @@ export interface GeminiCLIExtension {
   contextFiles: string[];
   excludeTools?: string[];
   id: string;
+  hooks?: { [K in HookEventName]?: HookDefinition[] };
 }
 
 export interface ExtensionInstallMetadata {
@@ -210,6 +212,48 @@ export enum AuthProviderType {
 export interface SandboxConfig {
   command: 'docker' | 'podman' | 'sandbox-exec';
   image: string;
+}
+
+/**
+ * Hook event names as defined in the design document
+ */
+export enum HookEventName {
+  BeforeTool = 'BeforeTool',
+  AfterTool = 'AfterTool',
+  BeforeAgent = 'BeforeAgent',
+  Notification = 'Notification',
+  AfterAgent = 'AfterAgent',
+  SessionStart = 'SessionStart',
+  SessionEnd = 'SessionEnd',
+  PreCompress = 'PreCompress',
+  BeforeModel = 'BeforeModel',
+  AfterModel = 'AfterModel',
+  BeforeToolSelection = 'BeforeToolSelection',
+}
+
+/**
+ * Hook configuration entry
+ */
+export interface HookConfig {
+  type: HookType;
+  command: string;
+  timeout?: number;
+}
+
+/**
+ * Hook definition with matcher
+ */
+export interface HookDefinition {
+  matcher?: string;
+  sequential?: boolean;
+  hooks: HookConfig[];
+}
+
+/**
+ * Hook implementation types
+ */
+export enum HookType {
+  Command = 'command',
 }
 
 export interface ConfigParameters {
@@ -284,6 +328,10 @@ export interface ConfigParameters {
   retryFetchErrors?: boolean;
   enableShellOutputEfficiency?: boolean;
   ptyInfo?: string;
+  enableHooks?: boolean;
+  hooks?: {
+    [K in HookEventName]?: HookDefinition[];
+  };
 }
 
 export class Config {
@@ -380,6 +428,11 @@ export class Config {
   private readonly continueOnFailedApiCall: boolean;
   private readonly retryFetchErrors: boolean;
   private readonly enableShellOutputEfficiency: boolean;
+  private readonly enableHooks: boolean;
+  private readonly hooks:
+    | { [K in HookEventName]?: HookDefinition[] }
+    | undefined;
+  private hookSystem?: HookSystem;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -471,8 +524,16 @@ export class Config {
     this.useSmartEdit = params.useSmartEdit ?? true;
     this.useWriteTodos = params.useWriteTodos ?? false;
     this.useModelRouter = params.useModelRouter ?? false;
+    this.enableHooks = params.enableHooks ?? false;
+
+    // Enable MessageBus integration if:
+    // 1. Explicitly enabled via setting, OR
+    // 2. Hooks are enabled and hooks are configured
+    const hasHooks = params.hooks && Object.keys(params.hooks).length > 0;
+    const hooksNeedMessageBus = this.enableHooks && hasHooks;
     this.enableMessageBusIntegration =
-      params.enableMessageBusIntegration ?? false;
+      params.enableMessageBusIntegration ??
+      (hooksNeedMessageBus ? true : false);
     this.codebaseInvestigatorSettings = {
       enabled: params.codebaseInvestigatorSettings?.enabled ?? false,
       maxNumTurns: params.codebaseInvestigatorSettings?.maxNumTurns ?? 15,
@@ -496,6 +557,7 @@ export class Config {
       format: params.output?.format ?? OutputFormat.TEXT,
     };
     this.retryFetchErrors = params.retryFetchErrors ?? false;
+    this.hooks = params.hooks;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -532,6 +594,12 @@ export class Config {
     await this.agentRegistry.initialize();
 
     this.toolRegistry = await this.createToolRegistry();
+
+    // Initialize hook system if enabled
+    if (this.enableHooks) {
+      this.hookSystem = new HookSystem(this);
+      await this.hookSystem.initialize();
+    }
 
     await this.geminiClient.initialize();
   }
@@ -1082,6 +1150,10 @@ export class Config {
     return this.enableMessageBusIntegration;
   }
 
+  getEnableHooks(): boolean {
+    return this.enableHooks;
+  }
+
   getCodebaseInvestigatorSettings(): CodebaseInvestigatorSettings {
     return this.codebaseInvestigatorSettings;
   }
@@ -1216,6 +1288,20 @@ export class Config {
 
     await registry.discoverAllTools();
     return registry;
+  }
+
+  /**
+   * Get the hook system instance
+   */
+  getHookSystem(): HookSystem | undefined {
+    return this.hookSystem;
+  }
+
+  /**
+   * Get hooks configuration
+   */
+  getHooks(): { [K in HookEventName]?: HookDefinition[] } | undefined {
+    return this.hooks;
   }
 }
 // Export model constants for use in CLI

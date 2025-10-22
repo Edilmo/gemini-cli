@@ -48,6 +48,7 @@ import type {
   AgentFinishEvent,
   WebFetchFallbackAttemptEvent,
   ExtensionUpdateEvent,
+  HookCallEvent,
 } from './types.js';
 import {
   recordApiErrorMetrics,
@@ -63,6 +64,7 @@ import {
   recordTokenUsageMetrics,
   recordApiResponseMetrics,
   recordAgentRunMetrics,
+  recordHookCallMetrics,
 } from './metrics.js';
 import { isTelemetrySdkInitialized } from './sdk.js';
 import type { UiEvent } from './uiTelemetry.js';
@@ -646,4 +648,23 @@ export function logWebFetchFallbackAttempt(
     attributes: event.toOpenTelemetryAttributes(config),
   };
   logger.emit(logRecord);
+}
+
+export function logHookCall(config: Config, event: HookCallEvent): void {
+  if (!isTelemetrySdkInitialized()) return;
+
+  const logger = logs.getLogger(SERVICE_NAME);
+  const logRecord: LogRecord = {
+    body: event.toLogBody(),
+    attributes: event.toOpenTelemetryAttributes(config),
+  };
+  logger.emit(logRecord);
+
+  recordHookCallMetrics(
+    config,
+    event.hook_event_name,
+    event.hook_name,
+    event.duration_ms,
+    event.success,
+  );
 }
