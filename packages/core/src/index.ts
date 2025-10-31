@@ -134,5 +134,11 @@ export { sessionId } from './utils/session.js';
 export * from './utils/browser.js';
 export { Storage } from './config/storage.js';
 
+// Export hooks system
+export * from './hooks/index.js';
+
 // Export test utils
 export * from './test-utils/index.js';
+
+// Export hook types
+export * from './hooks/types.js';

@@ -18,9 +18,11 @@ import {
   DEFAULT_TRUNCATE_TOOL_OUTPUT_THRESHOLD,
   ToolErrorType,
   ApprovalMode,
+  HookSystem,
 } from '../index.js';
 import type { Part } from '@google/genai';
-import { MockTool } from '../test-utils/mock-tool.js';
+import { MockTool } from '../test-utils/index.js';
+import { createMockMessageBus } from '../test-utils/mock-message-bus.js';
 
 describe('executeToolCall', () => {
   let mockToolRegistry: ToolRegistry;
@@ -67,6 +69,12 @@ describe('executeToolCall', () => {
       getPolicyEngine: () => null,
     } as unknown as Config;
 
+    // Use proper MessageBus mocking for Phase 3 preparation
+    const mockMessageBus = createMockMessageBus();
+    mockConfig.getMessageBus = vi.fn().mockReturnValue(mockMessageBus);
+    mockConfig.getHookSystem = vi
+      .fn()
+      .mockReturnValue(new HookSystem(mockConfig));
     abortController = new AbortController();
   });
 
